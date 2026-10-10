@@ -18,6 +18,8 @@ window.HARBOR_APPS = [
     emoji: "🧮", color: ["#2D6BE4", "#1F4FB5"], group: "learn", subject: "math", parentParam: "view=parent", status: "live" },
   { id: "words", name: "Words Adventure", tag: "Letters, words & stories", url: "https://words.jacobsiler.com",
     emoji: "📚", color: ["#0FBF94", "#0A8F70"], group: "learn", subject: "words", parentParam: "view=parent", status: "live" },
+  { id: "electronics", name: "Electronics Adventure", tag: "Circuits, logic & chips", url: "https://electronics.jacobsiler.com",
+    emoji: "⚡", color: ["#F29B38", "#C77413"], group: "learn", subject: null, parentParam: "view=parent", status: "soon" },
   { id: "sing", name: "Sight Singing", tag: "Read and sing music", url: "",
     emoji: "🎵", color: ["#9B6BE4", "#6F43B8"], group: "learn", subject: null, parentParam: "", status: "soon" },
   { id: "forge", name: "Forge Planner", tag: "Plan the week together", url: "",
