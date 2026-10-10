@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Harbor push: stage -> commit -> push to origin (GitHub Pages serves harbor.jacobsiler.com).
+    Harbor push: stage -> commit -> push to origin (Netlify deploys harbor.jacobsiler.com from GitHub).
 
 .DESCRIPTION
     Run by push.cmd (double-click).
@@ -40,7 +40,8 @@ Log '=== Harbor push ===' 'Cyan'
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Log 'git is not on PATH.' 'Red'; Done 1 }
 $null = & git rev-parse --is-inside-work-tree 2>&1
 if ($LASTEXITCODE -ne 0) { Log "Not a git repository: $repo" 'Red'; Done 1 }
-$branch = ((& git rev-parse --abbrev-ref HEAD) | Out-String).Trim()
+$branch = ((& git symbolic-ref --short HEAD 2>$null) | Out-String).Trim()
+if (-not $branch) { $branch = 'main' }
 Log "Repo: $repo   Branch: $branch"
 
 # 1. Secret guard: look at everything git would add.
@@ -57,6 +58,15 @@ if ($bad.Count -gt 0) {
 # 2. Sync with origin (no force pushes, ever).
 $null = Run-Git @('fetch', 'origin')
 if ($script:gc -ne 0) { Log 'git fetch failed (offline or not signed in to GitHub?).' 'Red'; Done 1 }
+# First run on a brand-new local repo: if GitHub already has history, adopt it (keeps your files).
+$null = & git rev-parse --verify HEAD 2>$null
+$hasLocal = ($LASTEXITCODE -eq 0)
+$null = & git rev-parse --verify "origin/$branch" 2>$null
+$hasRemote = ($LASTEXITCODE -eq 0)
+if (-not $hasLocal -and $hasRemote) {
+    Log 'First run: adopting existing GitHub history (your files are kept).' 'Yellow'
+    $null = Run-Git @('reset', '--mixed', "origin/$branch")
+}
 $behind = 0
 $cnt = (& git rev-list --count "HEAD..origin/$branch" 2>$null | Out-String).Trim()
 if ($cnt -match '^\d+$') { $behind = [int]$cnt }
@@ -90,11 +100,13 @@ if ($hasStaged) {
 
 # 4. Push if there is anything origin does not have.
 $ahead = 0
-$cnt = (& git rev-list --count "origin/$branch..HEAD" 2>$null | Out-String).Trim()
+$null = & git rev-parse --verify "origin/$branch" 2>$null
+if ($LASTEXITCODE -eq 0) { $range = "origin/$branch..HEAD" } else { $range = 'HEAD' }   # no remote branch yet = first push
+$cnt = (& git rev-list --count $range 2>$null | Out-String).Trim()
 if ($cnt -match '^\d+$') { $ahead = [int]$cnt }
 if ($ahead -eq 0) { Log 'Nothing to push - GitHub is already up to date.' 'Green'; Done 0 }
 Log "Pushing $ahead commit(s) to origin/$branch ..." 'Cyan'
-$null = Run-Git @('push', 'origin', $branch)
+$null = Run-Git @('push', '-u', 'origin', $branch)
 if ($script:gc -ne 0) { Log 'Push failed. The commit is safe locally; fix the error above and push again.' 'Red'; Done 1 }
-Log 'Pushed. GitHub Pages redeploys harbor.jacobsiler.com in about 1-2 minutes.' 'Green'
+Log 'Pushed. Netlify redeploys harbor.jacobsiler.com in about a minute.' 'Green'
 Done 0
