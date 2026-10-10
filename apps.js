@@ -29,6 +29,8 @@ window.HARBOR_APPS = [
     emoji: "🏡", color: ["#3E9FA8", "#2B7A83"], group: "home", subject: null, parentParam: "", status: "live" },
   { id: "kitchen", name: "Our Kitchen", tag: "Pantry, meals & shopping", url: "https://kitchen.jacobsiler.com",
     emoji: "🍳", color: ["#FF7A6B", "#D9493A"], group: "home", subject: null, parentParam: "", status: "live" },
+  { id: "fueld", name: "Fueld", tag: "Athletic nutrition & training", url: "https://fueld.jacobsiler.com",
+    emoji: "🥗", color: ["#7CB82F", "#55871A"], group: "home", subject: null, parentParam: "", status: "live" },
   { id: "forge", name: "Forge Planner", tag: "Plan, focus & get things done", url: "https://forge.jacobsiler.com",
     emoji: "🗓️", color: ["#F29B38", "#C77413"], group: "home", subject: null, parentParam: "", status: "live" }
 ];
