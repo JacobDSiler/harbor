@@ -8,3 +8,11 @@ deploy-tick.txt
 .env.*
 tokens.json
 *service-account*.json
+
+# Native build output (generated)
+native/www/
+native/node_modules/
+*.apk
+*.aab
+*.jks
+local.properties

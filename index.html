@@ -16,7 +16,7 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--navy:#1A2E4A;--blue:#2D6BE4;--mint:#06D6A0;--coral:#FF6B6B;--sun:#FFD166;--cream:#fdf6ee;--text:#2d2d2d;--muted:#7a8494;--r:20px;
-  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px)}
+  --sat:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px));--sab:max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px))}
 html{font-size:16px}
 body{font-family:'Nunito',system-ui,sans-serif;background:var(--cream);color:var(--text);min-height:100dvh;overflow-x:hidden;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
 h1,h2,h3{font-family:'Baloo 2','Nunito',sans-serif;color:var(--navy);line-height:1.15}
@@ -136,7 +136,7 @@ const $ = (s, el) => (el || document).querySelector(s);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 /* ---- persistent state (localStorage, always guarded) ---- */
-const defaults = { family: "", child: "", pin: "", notes: {}, hidden: [], cache: null, cachedAt: 0 };
+const defaults = { family: "", child: "", pin: "", notes: {}, hidden: [], cache: null, cachedAt: 0, openMode: "auto" };
 let S = Object.assign({}, defaults);
 try { S = Object.assign({}, defaults, JSON.parse(localStorage.getItem(STORE) || "{}")); } catch (e) {}
 const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) {} };
@@ -254,10 +254,26 @@ function renderHome(root) {
   $("#parentBtn").onclick = () => go("parent");
   const lb = $("#linkBtn"); if (lb) lb.onclick = () => { parentTab = "settings"; go("parent/settings"); };
   root.querySelectorAll("[data-kid]").forEach(b => b.onclick = () => { S.child = S.child === b.dataset.kid ? "" : b.dataset.kid; save(); render(); });
-  root.querySelectorAll("[data-app]").forEach(b => b.onclick = () => go("app/" + b.dataset.app));
+  root.querySelectorAll("[data-app]").forEach(b => b.onclick = () => launch(b.dataset.app));
 }
 
 /* ---- Embedded app viewer (keeps people inside Harbor; back button works) ---- */
+const isNativeApp = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+// "frame" = full-screen viewer inside Harbor; "browser" = system browser window (Chrome Custom Tab in the app).
+function openMode(a) {
+  if (S.openMode === "frame" || S.openMode === "browser") return S.openMode;
+  return a.open || (isNativeApp() ? "browser" : "frame");
+}
+function launch(id, extra) {
+  const a = appById(id); if (!a || !a.url) return;
+  if (openMode(a) === "browser") {
+    const url = appUrl(a, extra), N = window.HarborNative;
+    if (N && N.openUrl) N.openUrl(url); else window.open(url, "_blank", "noopener");
+    return;
+  }
+  try { sessionStorage.setItem("harbor_extra", extra || ""); } catch (e) {}
+  go("app/" + id);
+}
 function appUrl(a, extra) {
   const u = new URL(a.url); u.searchParams.set("from", "harbor");
   if (S.family) u.searchParams.set("family", S.family);
@@ -370,6 +386,8 @@ function settingsView() {
     <input class="inp mt12" id="code" placeholder="MA-XXXX" value="${esc(S.family)}" autocapitalize="characters" autocomplete="off" maxlength="12">
     <div class="row mt12"><button class="btn sp" id="saveCode">${S.family ? "Update code" : "Link family"}</button>${S.family ? `<button class="btn danger" id="unlink">Unlink</button>` : ""}</div>
     <p class="muted mt12" style="font-size:.84rem">${esc(syncLine())}</p></div>
+    <div class="card"><h3>Opening apps</h3><p class="muted mt8" style="font-size:.9rem">"Inside Harbor" keeps everyone in one place. "In a browser window" uses the phone's browser, which remembers your Math and Words logins.</p>
+    <select class="inp mt12" id="openMode"><option value="auto">Automatic (recommended)</option><option value="frame">Inside Harbor</option><option value="browser">In a browser window</option></select></div>
     <div class="card"><h3>Parent PIN</h3><p class="muted mt8" style="font-size:.9rem">Harbor accepts your Harbor PIN${S.cache && S.cache.parentPin ? " or the PIN set in Math/Words" : ""}.</p>
     <button class="btn ghost mt12" id="chgPin">${S.pin ? "Change Harbor PIN" : "Set Harbor PIN"}</button></div>
     <div class="card"><h3>About</h3><p class="muted mt8" style="font-size:.9rem">Harbor v${VERSION} reads your family's progress from Firebase. It never changes it.</p></div>`;
@@ -377,10 +395,12 @@ function settingsView() {
 function wireParent(root) {
   root.querySelectorAll("[data-go]").forEach(b => b.onclick = () => go(b.dataset.go));
   root.querySelectorAll("[data-refresh]").forEach(b => b.onclick = () => refresh());
-  root.querySelectorAll("[data-open]").forEach(b => b.onclick = () => { try { sessionStorage.setItem("harbor_extra", b.dataset.extra || ""); } catch (e) {} go("app/" + b.dataset.open); });
+  root.querySelectorAll("[data-open]").forEach(b => b.onclick = () => launch(b.dataset.open, b.dataset.extra));
   root.querySelectorAll("[data-vis]").forEach(b => b.onchange = () => {
     S.hidden = S.hidden.filter(x => x !== b.dataset.vis); if (!b.checked) S.hidden.push(b.dataset.vis); save();
   });
+  const om = $("#openMode");
+  if (om) { om.value = S.openMode || "auto"; om.onchange = () => { S.openMode = om.value; save(); toast("Saved"); }; }
   const sc = $("#saveCode");
   if (sc) sc.onclick = async () => {
     const v = $("#code").value.trim().toUpperCase();
@@ -394,7 +414,9 @@ function wireParent(root) {
 }
 
 /* ---- boot ---- */
-if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
+// Inside the native app, load the Capacitor bridge (window.HarborNative); the web version never needs it.
+if (window.Capacitor) { const nb = document.createElement("script"); nb.src = "native.js"; document.head.appendChild(nb); }
+if ("serviceWorker" in navigator && location.protocol.startsWith("http") && !window.Capacitor) navigator.serviceWorker.register("sw.js").catch(() => {});
 render();
 if (S.family) refresh(true);
 </script>

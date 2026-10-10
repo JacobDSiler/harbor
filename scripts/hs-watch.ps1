@@ -1,4 +1,4 @@
-# Harbor - tray watcher (auto-push to GitHub, Netlify deploys).
+# Harbor - tray watcher (auto-push to GitHub Pages).
 #   CANARY: deploy-tick.txt in the repo root. Whenever its modified-time changes, the watcher waits a few
 #   seconds for edits to settle, then runs scripts\hs-push.ps1 (stage + commit + push). Claude "ticks the
 #   canary" after substantial changes; you can also tick it by hand (see scripts\README-deploy.md).
@@ -87,7 +87,7 @@ function Run-Push([string]$why) {
         Log "push: exit=$code"
         if ($code -eq 0) {
             SetState 'green' ('Harbor: last push OK ' + (Get-Date -Format 'HH:mm'))
-            Balloon 'Harbor pushed' 'Live at harbor.jacobsiler.com in about a minute (Netlify).'
+            Balloon 'Harbor pushed' 'Live at harbor.jacobsiler.com in about a minute.'
         } elseif ($code -eq 2) {
             SetState 'red' 'Harbor: push BLOCKED (secret-looking file)'
             Balloon 'Push blocked' 'A secret-looking file is in the changes. See logs\push.log.'

@@ -1,0 +1,25 @@
+{
+  "appId": "com.silertech.harbor",
+  "appName": "Harbor",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#1A2E4A"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#1A2E4A",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#1A2E4A",
+      "overlaysWebView": false
+    }
+  }
+}

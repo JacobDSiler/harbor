@@ -1,6 +1,6 @@
 # Harbor - push + auto-push watcher
 
-Live site: https://harbor.jacobsiler.com (GitHub repo JacobDSiler/harbor, branch `main`; Netlify deploys on every push).
+Live site: https://harbor.jacobsiler.com (GitHub Pages, repo JacobDSiler/harbor, branch `main`).
 
 ## One-off push
 Double-click `push.cmd` in the repo root. It refuses to commit secret-looking files, adopts GitHub's history on
@@ -18,4 +18,4 @@ Stop it with `scripts\hs-stop-watcher.cmd`. Logs: `logs\push.log`, `logs\watcher
 
 ## Notes
 - The watcher never pushes on startup, only on a NEW tick.
-- Netlify takes about a minute after a push to go live.
+- GitHub Pages takes about a minute after a push to go live.

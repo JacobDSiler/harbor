@@ -10,6 +10,8 @@
  *   subject   "math" | "words" | null  -> links the app to progress shown in the Parent area
  *   parentParam  query string appended to open the app's own parent/teacher view
  *   status    "live" | "soon"
+ *   open      optional: "frame" (inside Harbor) or "browser" (system browser / Custom Tab). Default: browser in the
+ *             native app, frame on the web. A parent can override this in Parent area > Settings.
  */
 window.HARBOR_APPS = [
   { id: "math", name: "Math Adventure", tag: "Numbers, games & puzzles", url: "https://math.jacobsiler.com",

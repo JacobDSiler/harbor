@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Harbor push: stage -> commit -> push to origin (Netlify deploys harbor.jacobsiler.com from GitHub).
+    Harbor push: stage -> commit -> push to origin (GitHub Pages serves harbor.jacobsiler.com).
 
 .DESCRIPTION
     Run by push.cmd (double-click).
@@ -108,5 +108,5 @@ if ($ahead -eq 0) { Log 'Nothing to push - GitHub is already up to date.' 'Green
 Log "Pushing $ahead commit(s) to origin/$branch ..." 'Cyan'
 $null = Run-Git @('push', '-u', 'origin', $branch)
 if ($script:gc -ne 0) { Log 'Push failed. The commit is safe locally; fix the error above and push again.' 'Red'; Done 1 }
-Log 'Pushed. Netlify redeploys harbor.jacobsiler.com in about a minute.' 'Green'
+Log 'Pushed. GitHub Pages redeploys harbor.jacobsiler.com in about a minute.' 'Green'
 Done 0

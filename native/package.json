@@ -1,0 +1,23 @@
+{
+  "name": "harbor-native",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Native Android shell for Harbor (the family school hub)",
+  "scripts": {
+    "build:www": "node scripts/build-www.mjs",
+    "sync": "npm run build:www && npx cap sync",
+    "sync:android": "npm run build:www && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/browser": "^8.0.0",
+    "@capacitor/core": "^8.5.1",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/cli": "^8.5.1",
+    "esbuild": "^0.28.2"
+  }
+}

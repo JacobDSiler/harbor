@@ -2,7 +2,7 @@
 
 The Siler family school hub. One home screen with big buttons into Math Adventure, Words Adventure and every other homeschool app, plus a PIN-protected Parent area with per-child progress.
 
-Live at: https://harbor.jacobsiler.com (GitHub repo JacobDSiler/harbor, hosted on Netlify; the CNAME file is only used if you ever switch to GitHub Pages). Plain HTML/JS, no build step, so it wraps cleanly for native (Capacitor) later.
+Live at: https://harbor.jacobsiler.com (GitHub Pages, repo JacobDSiler/harbor; the CNAME file sets the custom domain). Plain HTML/JS, no build step, so it wraps cleanly for native (Capacitor) later.
 
 ## Files
 - `index.html`  the whole app (launcher, app viewer, PIN gate, parent area)
