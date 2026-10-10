@@ -261,6 +261,7 @@ function renderHome(root) {
 const isNativeApp = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 // "frame" = full-screen viewer inside Harbor; "browser" = system browser window (Chrome Custom Tab in the app).
 function openMode(a) {
+  if (a.mic && isNativeApp()) return "browser";   // microphone apps need the browser window in the native app
   if (S.openMode === "frame" || S.openMode === "browser") return S.openMode;
   return a.open || (isNativeApp() ? "browser" : "frame");
 }

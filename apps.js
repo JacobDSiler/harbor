@@ -10,6 +10,8 @@
  *   subject   "math" | "words" | null  -> links the app to progress shown in the Parent area
  *   parentParam  query string appended to open the app's own parent/teacher view
  *   status    "live" | "soon"
+ *   mic       true if the app uses the microphone. In the native app these always open in the browser window
+ *             (Harbor has no microphone permission of its own). Works inside the frame on the website.
  *   open      optional: "frame" (inside Harbor) or "browser" (system browser / Custom Tab). Default: browser in the
  *             native app, frame on the web. A parent can override this in Parent area > Settings.
  */
@@ -18,14 +20,17 @@ window.HARBOR_APPS = [
     emoji: "🧮", color: ["#2D6BE4", "#1F4FB5"], group: "learn", subject: "math", parentParam: "view=parent", status: "live" },
   { id: "words", name: "Words Adventure", tag: "Letters, words & stories", url: "https://words.jacobsiler.com",
     emoji: "📚", color: ["#0FBF94", "#0A8F70"], group: "learn", subject: "words", parentParam: "view=parent", status: "live" },
-  { id: "electronics", name: "Electronics Adventure", tag: "Circuits, logic & chips", url: "https://electronics.jacobsiler.com",
-    emoji: "⚡", color: ["#F29B38", "#C77413"], group: "learn", subject: null, parentParam: "view=parent", status: "soon" },
-  { id: "sing", name: "Sight Singing", tag: "Read and sing music", url: "",
-    emoji: "🎵", color: ["#9B6BE4", "#6F43B8"], group: "learn", subject: null, parentParam: "", status: "soon" },
-  { id: "forge", name: "Forge Planner", tag: "Plan the week together", url: "",
-    emoji: "🗓️", color: ["#F29B38", "#C77413"], group: "learn", subject: null, parentParam: "", status: "soon" },
+  { id: "electronics", name: "Electronics Adventure", tag: "Circuits, logic & making", url: "https://electronics.jacobsiler.com",
+    emoji: "⚡", color: ["#E69A00", "#B36B00"], group: "learn", subject: null, parentParam: "", status: "live" },
+  // Sight Singing is hosted on Firebase Hosting for now. When it gets its new name and domain, change url (and name) here.
+  { id: "sing", name: "Sight Singing", tag: "Read and sing music", url: "https://homeschool-math.web.app/",
+    emoji: "🎵", color: ["#9B6BE4", "#6F43B8"], group: "learn", subject: null, parentParam: "", mic: true, status: "live" },
+  { id: "home", name: "Our Home", tag: "Our family's home base", url: "https://home.jacobsiler.com",
+    emoji: "🏡", color: ["#3E9FA8", "#2B7A83"], group: "home", subject: null, parentParam: "", status: "live" },
   { id: "kitchen", name: "Our Kitchen", tag: "Pantry, meals & shopping", url: "https://kitchen.jacobsiler.com",
-    emoji: "🍳", color: ["#FF7A6B", "#D9493A"], group: "home", subject: null, parentParam: "", status: "live" }
+    emoji: "🍳", color: ["#FF7A6B", "#D9493A"], group: "home", subject: null, parentParam: "", status: "live" },
+  { id: "forge", name: "Forge Planner", tag: "Plan, focus & get things done", url: "https://forge.jacobsiler.com",
+    emoji: "🗓️", color: ["#F29B38", "#C77413"], group: "home", subject: null, parentParam: "", status: "live" }
 ];
 
 /* Words Adventure topic keys. Anything not in this list is treated as a Math topic. */
