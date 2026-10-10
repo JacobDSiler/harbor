@@ -1,0 +1,17 @@
+{
+  "name": "Harbor",
+  "short_name": "Harbor",
+  "description": "The Siler family school: one home for Math Adventure, Words Adventure and every homeschool app, with a parent area.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fdf6ee",
+  "theme_color": "#1A2E4A",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

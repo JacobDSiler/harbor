@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1A2E4A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Harbor">
+<title>Harbor</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#1A2E4A;--blue:#2D6BE4;--mint:#06D6A0;--coral:#FF6B6B;--sun:#FFD166;--cream:#fdf6ee;--text:#2d2d2d;--muted:#7a8494;--r:20px;
+  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px)}
+html{font-size:16px}
+body{font-family:'Nunito',system-ui,sans-serif;background:var(--cream);color:var(--text);min-height:100dvh;overflow-x:hidden;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+h1,h2,h3{font-family:'Baloo 2','Nunito',sans-serif;color:var(--navy);line-height:1.15}
+button{font-family:inherit;cursor:pointer}
+.wrap{max-width:760px;margin:0 auto;padding:0 16px}
+
+/* Header with sea */
+.hero{background:linear-gradient(180deg,#1A2E4A 0%,#2D6BE4 100%);color:#fff;padding:calc(var(--sat) + 14px) 0 56px;position:relative;overflow:hidden}
+.hero .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand svg{width:44px;height:44px;flex:none}
+.brand h1{color:#fff;font-size:1.9rem;font-weight:800;letter-spacing:.5px}
+.brand small{display:block;font-size:.78rem;opacity:.8;font-weight:600;margin-top:-2px}
+.pill{background:rgba(255,255,255,.16);color:#fff;border:1.5px solid rgba(255,255,255,.35);border-radius:999px;padding:9px 16px;font-weight:700;font-size:.9rem;min-height:40px}
+.pill:active{transform:scale(.96)}
+.sun{position:absolute;right:-30px;top:-30px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,#FFD166 0%,rgba(255,209,102,.0) 70%);opacity:.55;pointer-events:none}
+.waves{position:absolute;left:0;right:0;bottom:-1px;height:40px;display:block;width:100%}
+.hello{margin-top:18px;font-family:'Baloo 2';font-weight:800;font-size:1.5rem}
+.hello span{display:block;font-family:'Nunito';font-weight:600;font-size:.95rem;opacity:.85;margin-top:2px}
+
+/* Sailors */
+.sailors{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px;margin:-30px 0 6px;position:relative;scrollbar-width:none}
+.sailors::-webkit-scrollbar{display:none}
+.sailor{flex:none;background:#fff;border:3px solid transparent;border-radius:18px;padding:10px 16px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(26,46,74,.12);font-weight:800;color:var(--navy);font-size:1rem}
+.sailor .av{font-size:1.6rem}
+.sailor.on{border-color:var(--blue);background:#f0f5ff}
+.hint{background:#fff;border-radius:var(--r);box-shadow:0 4px 16px rgba(26,46,74,.1);padding:14px 16px;margin:-30px 0 6px;position:relative;display:flex;gap:12px;align-items:center;font-size:.92rem}
+.hint b{color:var(--navy)}
+.hint button{margin-left:auto;flex:none}
+
+/* Tiles */
+.sec{margin:22px 0 10px;font-size:1.15rem;display:flex;align-items:center;gap:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px}
+.tile{border:none;text-align:left;border-radius:24px;padding:18px 16px 16px;color:#fff;min-height:168px;display:flex;flex-direction:column;box-shadow:0 8px 22px rgba(26,46,74,.18);transition:transform .15s;position:relative;overflow:hidden}
+.tile:active{transform:scale(.96)}
+.tile .em{font-size:2.9rem;line-height:1;filter:drop-shadow(0 3px 4px rgba(0,0,0,.18))}
+.tile .nm{font-family:'Baloo 2';font-weight:800;font-size:1.28rem;line-height:1.1;margin-top:auto}
+.tile .tg{font-size:.8rem;opacity:.9;font-weight:600;margin-top:3px}
+.tile .bd{position:absolute;top:12px;right:12px;background:rgba(255,255,255,.25);border-radius:999px;padding:3px 10px;font-size:.74rem;font-weight:800}
+.tile.soon{background:#dfe4ec!important;color:#8892a2;box-shadow:none}
+.tile.soon .em{filter:grayscale(1);opacity:.6}
+.tile::after{content:"";position:absolute;right:-26px;bottom:-26px;width:90px;height:90px;border-radius:50%;background:rgba(255,255,255,.12)}
+
+/* Cards, buttons, forms */
+.card{background:#fff;border-radius:var(--r);box-shadow:0 4px 18px rgba(26,46,74,.08);padding:18px;margin-bottom:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;border-radius:14px;font-weight:800;font-size:.98rem;border:none;min-height:46px;background:var(--blue);color:#fff}
+.btn:active{transform:scale(.97)}
+.btn.sec2{background:#fff;color:var(--blue);border:2px solid var(--blue)}
+.btn.ghost{background:#eef1f6;color:var(--navy)}
+.btn.sm{padding:8px 14px;min-height:36px;font-size:.86rem;border-radius:11px}
+.btn.danger{background:#fff;color:#d6453a;border:2px solid #f3b4ae}
+.btn.bw{width:100%}
+.inp{width:100%;padding:12px 14px;border:2px solid #e2e6ee;border-radius:13px;font:inherit;font-weight:700;background:#fafbfd;outline:none}
+.inp:focus{border-color:var(--blue);background:#fff}
+textarea.inp{font-weight:500;min-height:96px;resize:vertical}
+.lbl{display:block;font-weight:800;font-size:.85rem;color:var(--navy);margin:0 0 5px}
+.muted{color:var(--muted)}
+.row{display:flex;align-items:center;gap:10px}
+.sp{flex:1}
+.mt8{margin-top:8px}.mt12{margin-top:12px}.mt16{margin-top:16px}
+
+/* Parent shell */
+.pbar{position:sticky;top:0;z-index:5;background:var(--navy);color:#fff;padding:calc(var(--sat) + 10px) 0 10px}
+.pbar .row{gap:8px}
+.pbar h2{color:#fff;font-size:1.25rem}
+.back{background:rgba(255,255,255,.14);color:#fff;border:none;border-radius:12px;padding:8px 14px;font-weight:800;min-height:38px}
+.tabs{display:flex;gap:6px;margin:14px 0}
+.tab{flex:1;background:#fff;border:2px solid #e2e6ee;border-radius:13px;padding:10px 6px;font-weight:800;color:var(--navy);font-size:.92rem}
+.tab.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.kid{display:flex;gap:14px;align-items:center;width:100%;text-align:left;border:none;background:#fff;border-radius:var(--r);box-shadow:0 4px 18px rgba(26,46,74,.08);padding:16px;margin-bottom:12px}
+.kid .av{font-size:2.4rem}
+.kid h3{font-size:1.25rem}
+.chev{font-size:1.4rem;color:var(--muted)}
+.bar{height:10px;border-radius:999px;background:#e9edf4;overflow:hidden;margin-top:5px}
+.bar i{display:block;height:100%;border-radius:999px;background:var(--blue)}
+.bar.w i{background:var(--mint)}
+.stat{display:flex;justify-content:space-between;font-size:.88rem;font-weight:700}
+.chip{display:inline-block;border-radius:999px;padding:4px 11px;font-size:.78rem;font-weight:800;background:#eef1f6;color:var(--navy);margin:0 6px 6px 0}
+.chip.warn{background:#ffe9e6;color:#b8372c}.chip.good{background:#dcf7ee;color:#0a7a5c}
+.li{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #eef1f6}
+.li:last-child{border-bottom:none}
+.empty{text-align:center;padding:28px 12px;color:var(--muted)}
+.empty .big{font-size:2.6rem}
+
+/* PIN */
+.pin{max-width:320px;margin:40px auto;text-align:center}
+.dots{display:flex;gap:14px;justify-content:center;margin:18px 0}
+.dots i{width:16px;height:16px;border-radius:50%;border:2.5px solid var(--navy)}
+.dots i.f{background:var(--navy)}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.keys button{height:62px;border-radius:18px;border:none;background:#fff;box-shadow:0 3px 10px rgba(26,46,74,.1);font-size:1.5rem;font-weight:800;color:var(--navy)}
+.keys button:active{background:#e8efff}
+.err{color:#d6453a;font-weight:800;min-height:1.4em;margin-top:8px}
+
+/* App viewer */
+#viewer{position:fixed;inset:0;z-index:50;background:#fff;display:flex;flex-direction:column}
+#viewer .vb{background:var(--navy);color:#fff;display:flex;align-items:center;gap:10px;padding:calc(var(--sat) + 6px) 12px 6px;min-height:calc(var(--sat) + 48px)}
+#viewer .vb b{font-family:'Baloo 2';font-size:1.05rem;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#viewer iframe{flex:1;width:100%;border:0;background:#fff}
+#viewer .load{position:absolute;inset:calc(var(--sat) + 54px) 0 0;display:flex;align-items:center;justify-content:center;font-size:3rem;pointer-events:none;background:var(--cream);transition:opacity .3s}
+#viewer .load.gone{opacity:0}
+.toast{position:fixed;left:50%;bottom:calc(var(--sab) + 24px);transform:translateX(-50%);background:var(--navy);color:#fff;padding:11px 20px;border-radius:999px;font-weight:700;font-size:.92rem;z-index:99;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.foot{text-align:center;color:var(--muted);font-size:.78rem;padding:26px 0 calc(var(--sab) + 24px)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="apps.js"></script>
+<script>
+"use strict";
+/* ============ Harbor: hub + parent area ============ */
+const VERSION = "0.1.0";
+const STORE = "harbor_v1";
+const APPS = window.HARBOR_APPS;
+const $ = (s, el) => (el || document).querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* ---- persistent state (localStorage, always guarded) ---- */
+const defaults = { family: "", child: "", pin: "", notes: {}, hidden: [], cache: null, cachedAt: 0 };
+let S = Object.assign({}, defaults);
+try { S = Object.assign({}, defaults, JSON.parse(localStorage.getItem(STORE) || "{}")); } catch (e) {}
+const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) {} };
+
+let unlockedUntil = 0;       // parent unlock expires after 10 minutes
+let pinBuf = "", pinErr = "", pinMode = "enter", pinFirst = "";
+let loading = false, loadErr = "";
+let parentTab = "kids";
+
+/* ---- data helpers ---- */
+const profiles = () => (S.cache && Array.isArray(S.cache.profiles)) ? S.cache.profiles : [];
+const country = () => (S.cache && S.cache.country) || "IE";
+const gradeLabel = p => { const g = window.HARBOR_GRADES[p.gradeId]; return g ? (g[country()] || g.IE) : ""; };
+const subjectOf = k => window.HARBOR_WORD_TOPICS.has(k) ? "words" : "math";
+const pretty = k => String(k).replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+const activeLine = ts => ts ? "active " + ago(ts) : "no activity yet";
+const ago = ts => {
+  if (!ts) return "never";
+  const d = Math.floor((Date.now() - ts) / 86400000);
+  if (d <= 0) return "today"; if (d === 1) return "yesterday"; if (d < 14) return d + " days ago";
+  return Math.floor(d / 7) + " weeks ago";
+};
+function topicsOf(p) {
+  const out = [];
+  for (const [k, v] of Object.entries(p.topicProgress || {})) {
+    const at = (v.at != null ? v.at : v.attempts) || 0, co = (v.co != null ? v.co : v.correct) || 0;
+    if (at > 0) out.push({ key: k, subject: subjectOf(k), at, co, pct: Math.round(co / at * 100), last: v.ls || 0 });
+  }
+  return out;
+}
+function quizzesOf(p) {
+  return (p.quizHistory || []).map(q => {
+    const t = (q.topics && q.topics[0]) || "";
+    const pct = q.pct != null ? q.pct : (q.total ? Math.round(q.score / q.total * 100) : 0);
+    return { ts: q.ts || q.date || 0, subject: t ? subjectOf(t) : "math", topics: q.topics || [], score: q.score, total: q.total, pct };
+  }).sort((a, b) => b.ts - a.ts);
+}
+function summary(p, subject) {
+  const t = topicsOf(p).filter(x => x.subject === subject);
+  const at = t.reduce((a, x) => a + x.at, 0), co = t.reduce((a, x) => a + x.co, 0);
+  const q = quizzesOf(p).filter(x => x.subject === subject);
+  const last = Math.max(0, ...t.map(x => x.last), ...q.map(x => x.ts));
+  return { topics: t, at, co, pct: at ? Math.round(co / at * 100) : null, last, quizzes: q };
+}
+const appById = id => APPS.find(a => a.id === id);
+const visibleApps = () => APPS.filter(a => !S.hidden.includes(a.id));
+
+async function fetchFamily(code) {
+  const cfg = window.HARBOR_FIREBASE;
+  const A = await import("https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js");
+  const F = await import("https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js");
+  const app = A.getApps().length ? A.getApps()[0] : A.initializeApp(cfg);
+  const snap = await F.getDoc(F.doc(F.getFirestore(app), "families", code));
+  return snap.exists() ? snap.data() : null;
+}
+async function refresh(quiet) {
+  if (!S.family) return;
+  loading = true; loadErr = ""; if (!quiet) render();
+  try {
+    const d = await fetchFamily(S.family);
+    if (!d) { loadErr = "That family code was not found."; }
+    else { S.cache = { profiles: d.profiles || [], country: d.country || "IE", parentPin: d.parentPin || "" }; S.cachedAt = Date.now();
+      if (S.child && !profiles().some(p => String(p.id) === S.child)) S.child = ""; save(); }
+  } catch (e) { loadErr = "Could not reach the family data. Showing the last saved copy."; }
+  loading = false; render();
+}
+function toast(msg) {
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
+}
+
+/* ---- routing: #/ , #/app/<id> , #/pin , #/parent[/kids|apps|settings|child/<id>] ---- */
+const route = () => (location.hash.replace(/^#\/?/, "") || "").split("/");
+const go = h => { location.hash = h; };
+window.addEventListener("hashchange", render);
+
+function render() {
+  const r = route(), root = $("#root");
+  if (r[0] === "app") return renderApp(root, r[1]);
+  if (r[0] === "pin") return renderPin(root);
+  if (r[0] === "parent") {
+    if (Date.now() > unlockedUntil) { pinBuf = ""; pinErr = ""; pinMode = needPinSetup() ? "create" : "enter"; return go("pin"); }
+    return renderParent(root, r);
+  }
+  renderHome(root);
+}
+
+/* ---- Home / launcher ---- */
+const LIGHTHOUSE = `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="31" fill="#fff" opacity=".12"/><path d="M24 56 28 22h8l4 34z" fill="#fff"/><path d="M26.4 40h11.2l.6 5H25.8zM27.4 30h9.2l.4 4h-10z" fill="#FF6B6B"/><rect x="26" y="14" width="12" height="9" rx="2" fill="#FFD166"/><path d="M24 14h16l-8-8z" fill="#FF6B6B"/><path d="M6 58c5 0 5-3 10-3s5 3 10 3 5-3 10-3 5 3 10 3 5-3 10-3 5 3 8 3v4H6z" fill="#06D6A0" opacity=".9"/></svg>`;
+const WAVES = `<svg class="waves" viewBox="0 0 800 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0 22c60 0 60-14 120-14s60 14 120 14 60-14 120-14 60 14 120 14 60-14 120-14 60 14 120 14 60-14 120-14v32H0z" fill="#fdf6ee"/></svg>`;
+
+function renderHome(root) {
+  const kids = profiles(), me = kids.find(p => String(p.id) === S.child);
+  const h = new Date().getHours(), greet = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  const tile = a => {
+    let badge = "";
+    if (me && a.subject) { const s = summary(me, a.subject); if (s.pct != null) badge = `<span class="bd">${s.pct}% right</span>`; }
+    if (a.status === "soon" || !a.url) return `<button class="tile soon" disabled><span class="em">${a.emoji}</span><span class="nm">${esc(a.name)}</span><span class="tg">Coming soon</span></button>`;
+    return `<button class="tile" data-app="${a.id}" style="background:linear-gradient(145deg,${a.color[0]},${a.color[1]})">${badge}<span class="em">${a.emoji}</span><span class="nm">${esc(a.name)}</span><span class="tg">${esc(a.tag)}</span></button>`;
+  };
+  const apps = visibleApps(), learn = apps.filter(a => a.group === "learn"), home = apps.filter(a => a.group === "home");
+  root.innerHTML = `
+  <div class="hero"><div class="sun"></div><div class="wrap">
+    <div class="top"><div class="brand">${LIGHTHOUSE}<div><h1>Harbor</h1><small>The Siler family school</small></div></div>
+      <button class="pill" id="parentBtn">🔒 Parents</button></div>
+    <div class="hello">${greet}${me ? ", " + esc(me.name) : ""}!<span>${me ? "Pick an adventure to set sail." : "Who is sailing today?"}</span></div>
+  </div>${WAVES}</div>
+  <div class="wrap">
+    ${kids.length ? `<div class="sailors">${kids.map(p => `<button class="sailor ${String(p.id) === S.child ? "on" : ""}" data-kid="${esc(p.id)}"><span class="av">${esc(p.avatar || "🙂")}</span>${esc(p.name)}</button>`).join("")}</div>`
+      : `<div class="hint"><div>⚓ <b>Link your family</b><br><span class="muted">Add your family code to see each child's progress here.</span></div><button class="btn sm" id="linkBtn">Link</button></div>`}
+    ${learn.length ? `<h2 class="sec">⛵ Learn &amp; play</h2><div class="grid">${learn.map(tile).join("")}</div>` : ""}
+    ${home.length ? `<h2 class="sec">🏡 Around the house</h2><div class="grid">${home.map(tile).join("")}</div>` : ""}
+    <div class="foot">Harbor v${VERSION}</div>
+  </div>`;
+  $("#parentBtn").onclick = () => go("parent");
+  const lb = $("#linkBtn"); if (lb) lb.onclick = () => { parentTab = "settings"; go("parent/settings"); };
+  root.querySelectorAll("[data-kid]").forEach(b => b.onclick = () => { S.child = S.child === b.dataset.kid ? "" : b.dataset.kid; save(); render(); });
+  root.querySelectorAll("[data-app]").forEach(b => b.onclick = () => go("app/" + b.dataset.app));
+}
+
+/* ---- Embedded app viewer (keeps people inside Harbor; back button works) ---- */
+function appUrl(a, extra) {
+  const u = new URL(a.url); u.searchParams.set("from", "harbor");
+  if (S.family) u.searchParams.set("family", S.family);
+  if (S.child) u.searchParams.set("child", S.child);
+  if (extra) new URLSearchParams(extra).forEach((v, k) => u.searchParams.set(k, v));
+  return u.toString();
+}
+function renderApp(root, id) {
+  const a = appById(id); if (!a || !a.url) return go("");
+  const extra = sessionStorage.getItem("harbor_extra") || ""; sessionStorage.removeItem("harbor_extra");
+  const src = appUrl(a, extra);
+  root.innerHTML = `<div id="viewer"><div class="vb"><button class="back" id="vBack">⚓ Harbor</button><b>${a.emoji} ${esc(a.name)}</b><button class="back" id="vOpen" title="Open in browser">↗</button></div>
+    <div class="load" id="vLoad">${a.emoji}</div><iframe id="vFrame" title="${esc(a.name)}" allow="fullscreen; autoplay; microphone; camera; clipboard-write; clipboard-read"></iframe></div>`;
+  const f = $("#vFrame"); f.addEventListener("load", () => $("#vLoad") && $("#vLoad").classList.add("gone")); f.src = src; setTimeout(() => { const l = $("#vLoad"); if (l) l.classList.add("gone"); }, 8000);
+  $("#vBack").onclick = () => { history.length > 1 ? history.back() : go(""); };
+  $("#vOpen").onclick = () => window.open(src, "_blank", "noopener");
+}
+
+/* ---- PIN gate ---- */
+function needPinSetup() { return !S.pin && !(S.cache && S.cache.parentPin); }
+function renderPin(root) {
+  const title = pinMode === "create" ? "Create a parent PIN" : pinMode === "confirm" ? "Enter it once more" : "Parent PIN";
+  const sub = pinMode === "create" ? "4 digits keeps little sailors out of the parent area." : pinMode === "confirm" ? "Just to be sure." : "Enter your 4-digit PIN.";
+  root.innerHTML = `<div class="wrap"><div class="pin"><div style="font-size:3rem">🔒</div><h2>${title}</h2><p class="muted mt8">${sub}</p>
+    <div class="dots">${[0, 1, 2, 3].map(i => `<i class="${i < pinBuf.length ? "f" : ""}"></i>`).join("")}</div>
+    <div class="keys">${[1, 2, 3, 4, 5, 6, 7, 8, 9, "x", 0, "⌫"].map(k => k === "x" ? `<button data-k="x" aria-label="Cancel" style="font-size:1rem">Cancel</button>` : `<button data-k="${k}">${k}</button>`).join("")}</div>
+    <div class="err" id="pinErr">${esc(pinErr)}</div></div></div>`;
+  root.querySelectorAll("[data-k]").forEach(b => b.onclick = () => pinKey(b.dataset.k));
+}
+function pinKey(k) {
+  if (k === "x") { pinBuf = ""; return go(""); }
+  if (k === "⌫") pinBuf = pinBuf.slice(0, -1); else if (pinBuf.length < 4) pinBuf += k;
+  pinErr = "";
+  if (pinBuf.length === 4) {
+    if (pinMode === "create") { pinFirst = pinBuf; pinBuf = ""; pinMode = "confirm"; }
+    else if (pinMode === "confirm") {
+      if (pinBuf === pinFirst) { S.pin = pinBuf; save(); unlockedUntil = Date.now() + 600000; pinBuf = ""; return go("parent"); }
+      pinErr = "Those did not match. Try again."; pinBuf = ""; pinMode = "create";
+    } else {
+      const ok = [S.pin, S.cache && S.cache.parentPin].filter(Boolean).includes(pinBuf);
+      if (ok) { unlockedUntil = Date.now() + 600000; pinBuf = ""; return go("parent"); }
+      pinErr = "Wrong PIN."; pinBuf = "";
+    }
+  }
+  renderPin($("#root"));
+}
+
+/* ---- Parent area ---- */
+function renderParent(root, r) {
+  const sub = r[1] || "kids";
+  if (sub === "child") return renderChild(root, r[2]);
+  parentTab = ["kids", "apps", "settings"].includes(sub) ? sub : "kids";
+  const body = parentTab === "kids" ? kidsView() : parentTab === "apps" ? appsView() : settingsView();
+  root.innerHTML = `<div class="pbar"><div class="wrap row"><button class="back" id="pHome">⚓ Home</button><h2 class="sp">Parent area</h2><button class="back" id="pLock">Lock</button></div></div>
+  <div class="wrap"><div class="tabs">${[["kids", "Children"], ["apps", "Apps"], ["settings", "Settings"]].map(([k, l]) => `<button class="tab ${parentTab === k ? "on" : ""}" data-tab="${k}">${l}</button>`).join("")}</div>${body}<div class="foot">Harbor v${VERSION}</div></div>`;
+  $("#pHome").onclick = () => go(""); $("#pLock").onclick = () => { unlockedUntil = 0; go(""); };
+  root.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => go("parent/" + b.dataset.tab));
+  wireParent(root);
+}
+function syncLine() {
+  if (loading) return "Syncing…";
+  if (!S.family) return "No family linked yet.";
+  return (loadErr ? loadErr + " " : "") + (S.cachedAt ? "Last updated " + new Date(S.cachedAt).toLocaleString() : "");
+}
+function kidsView() {
+  const kids = profiles();
+  if (!S.family) return `<div class="card empty"><div class="big">⚓</div><p><b>Link your family code</b></p><p class="mt8">Use the same code as Math Adventure and Words Adventure.</p><button class="btn mt16" data-go="parent/settings">Link family</button></div>`;
+  if (!kids.length) return `<div class="card empty"><div class="big">🌊</div><p>No children found for <b>${esc(S.family)}</b> yet.</p><p class="mt8 muted">${esc(syncLine())}</p><button class="btn sm mt16" data-refresh>Refresh</button></div>`;
+  return `<div class="row mt8" style="margin-bottom:12px"><span class="muted sp" style="font-size:.82rem">${esc(syncLine())}</span><button class="btn sm ghost" data-refresh>↻ Refresh</button></div>` +
+    kids.map(p => {
+      const m = summary(p, "math"), w = summary(p, "words"), last = Math.max(m.last, w.last);
+      return `<button class="kid" data-go="parent/child/${esc(p.id)}"><span class="av">${esc(p.avatar || "🙂")}</span><span class="sp"><h3>${esc(p.name)}</h3>
+        <span class="muted" style="font-size:.86rem">${esc(gradeLabel(p))} · ${activeLine(last)}</span>
+        <span class="stat mt8"><span>🧮 Math</span><span>${m.pct == null ? "–" : m.pct + "%"}</span></span><span class="bar"><i style="width:${m.pct || 0}%"></i></span>
+        <span class="stat mt8"><span>📚 Words</span><span>${w.pct == null ? "–" : w.pct + "%"}</span></span><span class="bar w"><i style="width:${w.pct || 0}%"></i></span></span><span class="chev">›</span></button>`;
+    }).join("");
+}
+function renderChild(root, id) {
+  const p = profiles().find(x => String(x.id) === String(id)); if (!p) return go("parent/kids");
+  const subjects = APPS.filter(a => a.subject);
+  const sections = subjects.map(a => {
+    const s = summary(p, a.subject);
+    const needs = s.topics.filter(t => t.at >= 5 && t.pct < 70).sort((x, y) => x.pct - y.pct).slice(0, 4);
+    const good = s.topics.filter(t => t.at >= 5 && t.pct >= 85).sort((x, y) => y.pct - x.pct).slice(0, 4);
+    return `<div class="card"><div class="row"><h3 class="sp">${a.emoji} ${esc(a.name)}</h3>${a.url ? `<button class="btn sm sec2" data-open="${a.id}" data-extra="${esc(a.parentParam)}">Open parent view</button>` : ""}</div>
+      ${s.at ? `<div class="stat mt12"><span>${s.at} questions · ${s.topics.length} topics</span><span>${s.pct}% correct</span></div><div class="bar ${a.subject === "words" ? "w" : ""}"><i style="width:${s.pct}%"></i></div>
+      <p class="muted mt8" style="font-size:.84rem">${s.last ? "Last active " + ago(s.last) : ""}</p>
+      ${needs.length ? `<p class="lbl mt16">Focus this week</p>${needs.map(t => `<span class="chip warn">${esc(pretty(t.key))} · ${t.pct}%</span>`).join("")}` : ""}
+      ${good.length ? `<p class="lbl mt12">Going well</p>${good.map(t => `<span class="chip good">${esc(pretty(t.key))} · ${t.pct}%</span>`).join("")}` : ""}`
+      : `<p class="muted mt12">No ${a.subject} activity yet.</p>`}</div>`;
+  }).join("");
+  const quizzes = quizzesOf(p).slice(0, 8);
+  root.innerHTML = `<div class="pbar"><div class="wrap row"><button class="back" id="cBack">‹ Children</button><h2 class="sp">${esc(p.avatar || "🙂")} ${esc(p.name)}</h2></div></div>
+  <div class="wrap"><p class="muted mt16" style="margin-bottom:12px">${esc(gradeLabel(p))}</p>${sections}
+    <div class="card"><h3>Recent quizzes</h3>${quizzes.length ? quizzes.map(q => `<div class="li"><span>${q.subject === "words" ? "📚" : "🧮"}</span><span class="sp">${esc(q.topics.map(pretty).join(", ") || "Quiz")}<br><small class="muted">${ago(q.ts)}</small></span><b>${q.score}/${q.total}</b></div>`).join("") : `<p class="muted mt8">No quizzes yet.</p>`}</div>
+    <div class="card"><label class="lbl" for="note">Teaching notes (kept on this device)</label><textarea class="inp" id="note" placeholder="What are we working on with ${esc(p.name)}?">${esc(S.notes[p.id] || "")}</textarea></div>
+  </div>`;
+  $("#cBack").onclick = () => go("parent/kids");
+  $("#note").addEventListener("input", e => { S.notes[p.id] = e.target.value; save(); });
+  wireParent(root);
+}
+function appsView() {
+  return `<p class="muted" style="margin-bottom:12px">Choose which apps show on the home screen. Add new apps in <code>apps.js</code>.</p>` +
+    APPS.map(a => `<div class="card"><div class="row"><span style="font-size:2rem">${a.emoji}</span><div class="sp"><b>${esc(a.name)}</b><br><small class="muted">${a.url ? esc(a.url.replace("https://", "")) : "Not live yet"}</small></div>
+      <label class="row" style="gap:6px;font-weight:700;font-size:.85rem"><input type="checkbox" data-vis="${a.id}" ${S.hidden.includes(a.id) ? "" : "checked"}> Show</label></div>
+      ${a.url && a.parentParam ? `<button class="btn sm sec2 mt12" data-open="${a.id}" data-extra="${esc(a.parentParam)}">Open ${esc(a.name)} parent view</button>` : ""}</div>`).join("");
+}
+function settingsView() {
+  return `<div class="card"><h3>Family code</h3><p class="muted mt8" style="font-size:.9rem">Same code used in Math Adventure and Words Adventure (like MA-XXXX).</p>
+    <input class="inp mt12" id="code" placeholder="MA-XXXX" value="${esc(S.family)}" autocapitalize="characters" autocomplete="off" maxlength="12">
+    <div class="row mt12"><button class="btn sp" id="saveCode">${S.family ? "Update code" : "Link family"}</button>${S.family ? `<button class="btn danger" id="unlink">Unlink</button>` : ""}</div>
+    <p class="muted mt12" style="font-size:.84rem">${esc(syncLine())}</p></div>
+    <div class="card"><h3>Parent PIN</h3><p class="muted mt8" style="font-size:.9rem">Harbor accepts your Harbor PIN${S.cache && S.cache.parentPin ? " or the PIN set in Math/Words" : ""}.</p>
+    <button class="btn ghost mt12" id="chgPin">${S.pin ? "Change Harbor PIN" : "Set Harbor PIN"}</button></div>
+    <div class="card"><h3>About</h3><p class="muted mt8" style="font-size:.9rem">Harbor v${VERSION} reads your family's progress from Firebase. It never changes it.</p></div>`;
+}
+function wireParent(root) {
+  root.querySelectorAll("[data-go]").forEach(b => b.onclick = () => go(b.dataset.go));
+  root.querySelectorAll("[data-refresh]").forEach(b => b.onclick = () => refresh());
+  root.querySelectorAll("[data-open]").forEach(b => b.onclick = () => { try { sessionStorage.setItem("harbor_extra", b.dataset.extra || ""); } catch (e) {} go("app/" + b.dataset.open); });
+  root.querySelectorAll("[data-vis]").forEach(b => b.onchange = () => {
+    S.hidden = S.hidden.filter(x => x !== b.dataset.vis); if (!b.checked) S.hidden.push(b.dataset.vis); save();
+  });
+  const sc = $("#saveCode");
+  if (sc) sc.onclick = async () => {
+    const v = $("#code").value.trim().toUpperCase();
+    if (!/^[A-Z0-9-]{6,12}$/.test(v)) return toast("That does not look like a family code.");
+    if (v !== S.family) { S.cache = null; S.cachedAt = 0; S.child = ""; }
+    S.family = v; save(); await refresh(true);
+    toast(loadErr && !S.cache ? loadErr : "Family linked ⚓"); render();
+  };
+  const ul = $("#unlink"); if (ul) ul.onclick = () => { if (confirm("Unlink this device from " + S.family + "? Your data stays safe in the cloud.")) { S.family = ""; S.child = ""; S.cache = null; S.cachedAt = 0; save(); render(); } };
+  const cp = $("#chgPin"); if (cp) cp.onclick = () => { pinBuf = ""; pinErr = ""; pinMode = "create"; unlockedUntil = 0; go("pin"); };
+}
+
+/* ---- boot ---- */
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
+render();
+if (S.family) refresh(true);
+</script>
+</body>
+</html>
