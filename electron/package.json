@@ -1,0 +1,28 @@
+{
+  "name": "harbor-desktop",
+  "version": "1.0.0",
+  "description": "Harbor - family homeschool hub (Windows desktop app)",
+  "author": "Siler Technology Ltd <silertechireland@gmail.com>",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "prepare:app": "node scripts/prepare-app.mjs",
+    "start": "npm run prepare:app && electron .",
+    "dist": "npm run prepare:app && electron-builder --win nsis portable --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "com.silertech.harbor.desktop",
+    "productName": "Harbor",
+    "copyright": "Siler Technology Ltd",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "preload.js", "app/**", "package.json"],
+    "win": { "icon": "build/icon.png", "target": ["nsis", "portable"] },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "perMachine": false },
+    "artifactName": "Harbor-${version}-${os}-setup.${ext}",
+    "portable": { "artifactName": "Harbor-${version}-portable.${ext}" }
+  }
+}

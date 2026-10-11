@@ -16,3 +16,8 @@ native/node_modules/
 *.aab
 *.jks
 local.properties
+
+# Electron desktop build (generated)
+electron/node_modules/
+electron/dist/
+electron/app/
