@@ -119,6 +119,7 @@ textarea.inp{font-weight:500;min-height:96px;resize:vertical}
 #viewer .load{position:absolute;inset:calc(var(--sat) + 54px) 0 0;display:flex;align-items:center;justify-content:center;font-size:3rem;pointer-events:none;background:var(--cream);transition:opacity .3s}
 #viewer .load.gone{opacity:0}
 .toast{position:fixed;left:50%;bottom:calc(var(--sab) + 24px);transform:translateX(-50%);background:var(--navy);color:#fff;padding:11px 20px;border-radius:999px;font-weight:700;font-size:.92rem;z-index:99;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.get a.btn{text-decoration:none;display:inline-block;margin:0 8px 8px 0}
 .foot{text-align:center;color:var(--muted);font-size:.78rem;padding:26px 0 calc(var(--sab) + 24px)}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -228,6 +229,21 @@ function render() {
 const LIGHTHOUSE = `<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="31" fill="#fff" opacity=".12"/><path d="M24 56 28 22h8l4 34z" fill="#fff"/><path d="M26.4 40h11.2l.6 5H25.8zM27.4 30h9.2l.4 4h-10z" fill="#FF6B6B"/><rect x="26" y="14" width="12" height="9" rx="2" fill="#FFD166"/><path d="M24 14h16l-8-8z" fill="#FF6B6B"/><path d="M6 58c5 0 5-3 10-3s5 3 10 3 5-3 10-3 5 3 10 3 5-3 10-3 5 3 8 3v4H6z" fill="#06D6A0" opacity=".9"/></svg>`;
 const WAVES = `<svg class="waves" viewBox="0 0 800 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0 22c60 0 60-14 120-14s60 14 120 14 60-14 120-14 60 14 120 14 60-14 120-14 60 14 120 14 60-14 120-14v32H0z" fill="#fdf6ee"/></svg>`;
 
+/* "Get the app" card: website visitors only (not inside the native app, not when already installed). */
+function getAppCard() {
+  const D = window.HARBOR_DOWNLOADS || {};
+  if (isNativeApp() || (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone) return "";
+  const ua = navigator.userAgent || "", ios = /iPhone|iPad|iPod/.test(ua), android = /Android/.test(ua);
+  const btns = [];
+  if (D.play) btns.push(`<a class="btn sm" href="${esc(D.play)}" rel="noopener">Get it on Google Play</a>`);
+  else if (D.android && !ios) btns.push(`<a class="btn sm" href="${esc(D.android)}" rel="noopener">Download for Android (APK)</a>`);
+  if (D.appstore) btns.push(`<a class="btn sm" href="${esc(D.appstore)}" rel="noopener">Download on the App Store</a>`);
+  const tip = ios ? "On iPhone or iPad: tap Share, then <b>Add to Home Screen</b>."
+    : android ? "Or open the browser menu and tap <b>Install app</b>. For the APK, allow installs from your browser when Android asks."
+    : "On a phone or tablet, open this page there. You can also install it from your browser's menu.";
+  return `<div class="card get"><b>📲 Get Harbor on your device</b><div class="muted" style="margin:6px 0 12px">${tip}</div><div class="getbtns">${btns.join("")}</div></div>`;
+}
+
 function renderHome(root) {
   const kids = profiles(), me = kids.find(p => String(p.id) === S.child);
   const h = new Date().getHours(), greet = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
@@ -249,6 +265,7 @@ function renderHome(root) {
       : `<div class="hint"><div>⚓ <b>Link your family</b><br><span class="muted">Add your family code to see each child's progress here.</span></div><button class="btn sm" id="linkBtn">Link</button></div>`}
     ${learn.length ? `<h2 class="sec">⛵ Learn &amp; play</h2><div class="grid">${learn.map(tile).join("")}</div>` : ""}
     ${home.length ? `<h2 class="sec">🏡 Around the house</h2><div class="grid">${home.map(tile).join("")}</div>` : ""}
+    ${getAppCard()}
     <div class="foot">Harbor v${VERSION}</div>
   </div>`;
   $("#parentBtn").onclick = () => go("parent");

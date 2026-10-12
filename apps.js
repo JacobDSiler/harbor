@@ -64,3 +64,12 @@ window.HARBOR_FIREBASE = {
   messagingSenderId: "275309549483",
   appId: "1:275309549483:web:3c118499f22eb23e6f24ee"
 };
+
+/* Native app downloads shown on the website (hidden inside the app and when installed to the home screen).
+ * android: the rolling "android-latest" GitHub release, refreshed by the Build Android workflow on every push.
+ * play / appstore: fill in when the store listings are live (they replace the APK / Add-to-Home-Screen hints). */
+window.HARBOR_DOWNLOADS = {
+  android: "https://github.com/JacobDSiler/harbor/releases/download/android-latest/Harbor.apk",
+  play: "",
+  appstore: ""
+};
