@@ -72,6 +72,8 @@ jobs:
           cp native/android/app/build/outputs/apk/debug/app-debug.apk out/Harbor-debug.apk
           [ -f native/android/app/build/outputs/apk/release/app-release.apk ] && cp native/android/app/build/outputs/apk/release/app-release.apk out/Harbor-release.apk || true
           [ -f native/android/app/build/outputs/bundle/release/app-release.aab ] && cp native/android/app/build/outputs/bundle/release/app-release.aab out/Harbor-release.aab || true
+          # Stable download name: the signed release build when keystore secrets exist, otherwise the debug build.
+          if [ -f out/Harbor-release.apk ]; then cp out/Harbor-release.apk out/Harbor.apk; else cp out/Harbor-debug.apk out/Harbor.apk; fi
           ls -la out
 
       - uses: actions/upload-artifact@v4
@@ -85,3 +87,16 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: out/*
+
+      # Rolling release behind the download button on harbor.jacobsiler.com:
+      # https://github.com/JacobDSiler/harbor/releases/download/android-latest/Harbor.apk
+      - name: Publish rolling Android release
+        if: github.event_name != 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: Harbor for Android (latest)
+          body: Latest Harbor Android build, updated automatically on every push. Download Harbor.apk and open it on your phone (allow installs from your browser or Files app when asked).
+          files: out/Harbor.apk
+          prerelease: false
+          make_latest: false
