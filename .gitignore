@@ -21,3 +21,7 @@ local.properties
 electron/node_modules/
 electron/dist/
 electron/app/
+
+# Generated iOS project / build output (CI regenerates it)
+native/ios/
+native/build/

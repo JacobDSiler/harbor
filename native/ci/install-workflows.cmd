@@ -5,6 +5,7 @@ setlocal
 set "REPO=%~dp0..\.."
 if not exist "%REPO%\.github\workflows" mkdir "%REPO%\.github\workflows"
 copy /Y "%~dp0build-android.yml" "%REPO%\.github\workflows\build-android.yml"
+copy /Y "%~dp0build-ios.yml" "%REPO%\.github\workflows\build-ios.yml"
 if exist "%REPO%\electron\ci\build-desktop.yml" (
   choice /M "Also install the optional Windows desktop (Electron) build"
   if not errorlevel 2 copy /Y "%REPO%\electron\ci\build-desktop.yml" "%REPO%\.github\workflows\build-desktop.yml"
