@@ -467,15 +467,100 @@ function syncLine() {
   if (!S.family) return "No family linked yet.";
   return (loadErr ? loadErr + " " : "") + (S.cachedAt ? "Last updated " + new Date(S.cachedAt).toLocaleString() : "");
 }
+/* ---- merge duplicate learners: purely additive. Everything from the duplicates is folded into the one you keep
+   (progress is added together, histories are combined) and a full copy of the originals is saved to the cloud first. ---- */
+function sumRec(x, y) {
+  const o = Object.assign({}, y, x);
+  for (const k in y) if (typeof y[k] === "number" && typeof x[k] === "number") o[k] = k === "ls" ? Math.max(x[k], y[k]) : x[k] + y[k];
+  return o;
+}
+const RL_RANK = { notstarted: 1, reading: 2, finished: 3 };
+function mergeProfileData(a, b) {
+  const o = Object.assign({}, b, a), ta = a.topicProgress || {}, tb = b.topicProgress || {}, tp = {};
+  new Set([...Object.keys(ta), ...Object.keys(tb)]).forEach(k => { tp[k] = ta[k] && tb[k] ? sumRec(ta[k], tb[k]) : (ta[k] || tb[k]); });
+  o.topicProgress = tp;
+  const seen = new Set();
+  o.quizHistory = [...(a.quizHistory || []), ...(b.quizHistory || [])].filter(q => { const k = q.ts + "|" + q.score + "|" + q.total + "|" + (q.pct == null ? "" : q.pct); if (seen.has(k)) return false; seen.add(k); return true; }).sort((x, y) => (x.ts || 0) - (y.ts || 0));
+  if (a.readingList || b.readingList) {
+    const r = Object.assign({}, b.readingList, a.readingList);
+    for (const k in (b.readingList || {})) if ((RL_RANK[b.readingList[k]] || 0) > (RL_RANK[r[k]] || 0)) r[k] = b.readingList[k];
+    for (const k in (a.readingList || {})) if ((RL_RANK[a.readingList[k]] || 0) > (RL_RANK[r[k]] || 0)) r[k] = a.readingList[k];
+    o.readingList = r;
+  }
+  if (a.customBooks || b.customBooks) { const ids = new Set(), out = []; [...(a.customBooks || []), ...(b.customBooks || [])].forEach(x => { if (!ids.has(x.id)) { ids.add(x.id); out.push(x); } }); o.customBooks = out; }
+  if (a.terms || b.terms) o.terms = Object.assign({}, b.terms, a.terms);
+  o.createdAt = Math.min(a.createdAt || Infinity, b.createdAt || Infinity); if (!isFinite(o.createdAt)) delete o.createdAt;
+  return o;
+}
+function mergeEA(x, y) {
+  const m = { labs: Object.assign({}, x.labs), quiz: Object.assign({}, x.quiz), missions: Object.assign({}, x.missions, y.missions), games: Object.assign({}, x.games) };
+  for (const k in (y.labs || {})) { const c = m.labs[k]; if (!c || (y.labs[k].stars || 0) > (c.stars || 0)) m.labs[k] = y.labs[k]; }
+  for (const k in (y.quiz || {})) { const c = m.quiz[k]; if (!c || (y.quiz[k].pct || 0) > (c.pct || 0)) m.quiz[k] = y.quiz[k]; }
+  for (const k in (y.games || {})) { const c = m.games[k], g = y.games[k];
+    m.games[k] = !c ? g : { stars: Math.max(c.stars || 0, g.stars || 0), plays: (c.plays || 0) + (g.plays || 0), best: Math.max(c.best || 0, g.best || 0), at: Math.max(c.at || 0, g.at || 0) }; }
+  const bx = x.badges, by = y.badges;
+  if (Array.isArray(bx) || (Array.isArray(by) && !bx)) m.badges = [...new Set([...(bx || []), ...(Array.isArray(by) ? by : Object.keys(by || {}))])];
+  else m.badges = Object.assign({}, by, bx);
+  Object.keys(x).forEach(k => { if (!(k in m)) m[k] = x[k]; });
+  return m;
+}
+async function mergeLearners(keepId, dupIds) {
+  const { F, db } = await fsLoad(), ref = F.doc(db, "families", S.family), eaRef = F.doc(db, "families", S.family + "_ea"),
+    bkRef = F.doc(db, "families", S.family + "_merge_" + Date.now()), dups = new Set(dupIds.map(String));
+  await F.runTransaction(db, async tx => {
+    const snap = await tx.get(ref), eaSnap = await tx.get(eaRef);
+    if (!snap.exists()) throw new Error("family-missing");
+    const list = (snap.data().profiles || []).map(x => Object.assign({}, x));
+    const keep = list.find(x => String(x.id) === String(keepId)), gone = list.filter(x => dups.has(String(x.id)));
+    if (!keep || !gone.length) throw new Error("nothing-to-merge");
+    let merged = keep; gone.forEach(d => { merged = mergeProfileData(merged, d); });
+    const eaData = eaSnap.exists() ? eaSnap.data() : null, prog = Object.assign({}, eaData && eaData.prog), before = {};
+    [keepId, ...gone.map(d => d.id)].forEach(id => { if (prog[id]) before[id] = prog[id]; });
+    let ep = prog[keepId]; gone.forEach(d => { if (prog[d.id]) ep = ep ? mergeEA(ep, prog[d.id]) : prog[d.id]; });
+    if (ep) prog[keepId] = ep; gone.forEach(d => { delete prog[d.id]; });
+    tx.set(bkRef, { app: "harbor-merge-backup", ts: Date.now(), keep: JSON.stringify(keep), merged: JSON.stringify(gone), ea: JSON.stringify(before) });
+    tx.update(ref, { profiles: list.filter(x => !dups.has(String(x.id))).map(x => String(x.id) === String(keepId) ? merged : x) });
+    if (Object.keys(before).length) tx.set(eaRef, Object.assign({ app: "electronics-adventure" }, eaData, { prog, ts: Date.now() }));
+  });
+  if (S.child && dups.has(String(S.child))) S.child = String(keepId);
+  save(); await refresh(true);
+}
+function kidStats(p) { const q = (p.quizHistory || []).length, t = Object.keys(p.topicProgress || {}).length, e = eaSummary(p); return q + " quiz" + (q === 1 ? "" : "zes") + " · " + t + " topic" + (t === 1 ? "" : "s") + (e.any ? " · " + e.stars + " ★ Electronics" : ""); }
+function mergeSheet(preKeep) {
+  const kids = profiles(); if (kids.length < 2) return toast("You need at least two children to merge.");
+  let keep = String(preKeep || kids[0].id), pick = new Set();
+  const draw = el => {
+    el.querySelector("#mgList").innerHTML = kids.map(k => { const id = String(k.id), isKeep = id === keep;
+      return `<div class="li" style="align-items:center;gap:10px"><label style="display:flex;gap:8px;align-items:center;flex:1;cursor:pointer"><input type="radio" name="mgKeep" value="${esc(id)}" ${isKeep ? "checked" : ""}>
+        <span style="font-size:1.6rem">${esc(k.avatar || "🙂")}</span><span class="sp"><b>${esc(k.name)}</b><br><small class="muted">${esc(gradeLabel(k))} · ${esc(kidStats(k))}</small></span></label>
+        <label style="display:flex;gap:6px;align-items:center;font-size:.85rem;${isKeep ? "opacity:.35" : ""}"><input type="checkbox" data-pick="${esc(id)}" ${pick.has(id) && !isKeep ? "checked" : ""} ${isKeep ? "disabled" : ""}>merge in</label></div>`; }).join("");
+    el.querySelectorAll("[name=mgKeep]").forEach(r => r.onchange = () => { keep = r.value; pick.delete(keep); draw(el); });
+    el.querySelectorAll("[data-pick]").forEach(c => c.onchange = () => { c.checked ? pick.add(c.dataset.pick) : pick.delete(c.dataset.pick); el.querySelector("#mgGo").disabled = !pick.size; });
+    el.querySelector("#mgGo").disabled = !pick.size;
+  };
+  sheet(`<h3>Merge duplicate children</h3>
+    <p class="muted mt8" style="font-size:.9rem">Choose the one to <b>keep</b> (its name, year and avatar stay), then tick the duplicates to <b>merge in</b>. Quizzes, topic progress, reading lists and Electronics stars from the duplicates are added to the one you keep. Nothing is lost, and a backup copy of the originals is saved first.</p>
+    <div id="mgList" class="mt12"></div>
+    <div class="row mt16"><button class="btn sp" id="mgGo">Merge</button><button class="btn ghost" id="mgCancel">Cancel</button></div>`, (el, close) => {
+    draw(el); el.querySelector("#mgCancel").onclick = close;
+    el.querySelector("#mgGo").onclick = async () => {
+      const names = kids.filter(k => pick.has(String(k.id))).map(k => k.name), kn = (kids.find(k => String(k.id) === keep) || {}).name;
+      if (!confirm("Merge " + names.join(" + ") + " into " + kn + "?\n\n" + kn + " keeps their name and avatar and gets all the progress. The merged accounts disappear from Math, Words and Electronics. Close those apps on other devices first so they pick up the change.")) return;
+      const btn = el.querySelector("#mgGo"); btn.disabled = true; btn.textContent = "Merging…";
+      try { await mergeLearners(keep, [...pick]); close(); toast("Merged into " + kn + " ⚓"); go("parent/child/" + keep); render(); }
+      catch (e) { console.warn(e); btn.disabled = false; btn.textContent = "Merge"; toast("Could not merge. Check your connection and try again."); }
+    };
+  });
+}
 function kidsView() {
   const kids = profiles();
   if (!S.family) return `<div class="card empty"><div class="big">⚓</div><p><b>Set up your family</b></p><p class="mt8">Already use Math or Words Adventure? Link your code. New here? Start a family.</p>
     <div class="row mt16" style="justify-content:center"><button class="btn" data-go="parent/settings">Link my family code</button><button class="btn sec2" id="startFam">Start a new family</button></div></div>`;
-  const addBtn = `<button class="btn sm" id="addKid">＋ Add child</button>`;
+  const addBtn = `<button class="btn sm" id="addKid">＋ Add child</button>`, mergeBtn = kids.length > 1 ? `<button class="btn sm ghost" id="mergeKids" title="Combine duplicate children">⇄ Merge</button>` : "";
   if (!kids.length) return `<div class="card empty"><div class="big">🌊</div><p>No children in <b>${esc(S.family)}</b> yet.</p><p class="mt8 muted">${esc(syncLine())}</p>
     <div class="row mt16" style="justify-content:center">${addBtn}<button class="btn sm ghost" data-refresh>Refresh</button></div></div>`;
   const shown = visibleApps().filter(a => a.subject || a.progress === "ea");
-  return `<div class="row mt8" style="margin-bottom:12px"><span class="muted sp" style="font-size:.82rem">${esc(syncLine())}</span>${addBtn}<button class="btn sm ghost" data-refresh>↻</button></div>` +
+  return `<div class="row mt8" style="margin-bottom:12px"><span class="muted sp" style="font-size:.82rem">${esc(syncLine())}</span>${mergeBtn}${addBtn}<button class="btn sm ghost" data-refresh>↻</button></div>` +
     kids.map(p => {
       const lasts = [], rows = shown.map(a => {
         if (a.subject) { const m = summary(p, a.subject); lasts.push(m.last);
@@ -509,11 +594,12 @@ function renderChild(root, id) {
   <div class="wrap"><p class="muted mt16" style="margin-bottom:12px">${esc(gradeLabel(p))}</p>${sections}${eaCard}
     <div class="card"><h3>Recent quizzes</h3>${quizzes.length ? quizzes.map(q => `<div class="li"><span>${q.subject === "words" ? "📚" : "🧮"}</span><span class="sp">${esc(q.topics.map(pretty).join(", ") || "Quiz")}<br><small class="muted">${ago(q.ts)}</small></span><b>${q.score}/${q.total}</b></div>`).join("") : `<p class="muted mt8">No quizzes yet.</p>`}</div>
     <div class="card"><h3>Manage ${esc(p.name)}</h3><p class="muted mt8" style="font-size:.9rem">Changes here apply to every Harbor app.</p>
-      <div class="row mt12"><button class="btn sec2" id="editKid">Edit details</button><button class="btn danger" id="rmKid">Remove</button></div></div>
+      <div class="row mt12" style="flex-wrap:wrap"><button class="btn sec2" id="editKid">Edit details</button>${profiles().length > 1 ? `<button class="btn sec2" id="mergeInto">Merge another into ${esc(p.name)}</button>` : ""}<button class="btn danger" id="rmKid">Remove</button></div></div>
     <div class="card"><label class="lbl" for="note">Teaching notes (kept on this device)</label><textarea class="inp" id="note" placeholder="What are we working on with ${esc(p.name)}?">${esc(S.notes[p.id] || "")}</textarea></div>
   </div>`;
   $("#cBack").onclick = () => go("parent/kids");
   $("#editKid").onclick = () => learnerForm(p);
+  const mi = $("#mergeInto"); if (mi) mi.onclick = () => mergeSheet(p.id);
   $("#rmKid").onclick = async () => { if (await removeLearner(p)) go("parent/kids"); };
   $("#note").addEventListener("input", e => { S.notes[p.id] = e.target.value; save(); });
   wireParent(root);
@@ -556,6 +642,7 @@ function wireParent(root) {
     toast(loadErr && !S.cache ? loadErr : "Family linked ⚓"); render();
   };
   const ak = $("#addKid"); if (ak) ak.onclick = () => learnerForm(null);
+  const mk = $("#mergeKids"); if (mk) mk.onclick = () => mergeSheet();
   const sf = $("#startFam"); if (sf) sf.onclick = startFamilySheet;
   const sp = $("#savePantry");
   if (sp) sp.onclick = () => {
