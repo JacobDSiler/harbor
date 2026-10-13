@@ -10,6 +10,7 @@
  *   subject   "math" | "words" | null  -> links the app to progress shown in the Parent area
  *   parentParam  query string appended to open the app's own parent/teacher view
  *   status    "live" | "soon"
+ *   progress  "ea" for apps whose progress Harbor reads from the family's _ea record (Math/Words use subject instead)
  *   familyGroup  "pantry" for Our Kitchen / Our Home: they use their own WORD-1234 family code (set in Parent > Settings), not the Math/Words one.
  *   mic       true if the app uses the microphone. In the native app these always open in the browser window
  *             (Harbor has no microphone permission of its own). Works inside the frame on the website.
@@ -22,7 +23,7 @@ window.HARBOR_APPS = [
   { id: "words", name: "Words Adventure", tag: "Letters, words & stories", url: "https://words.jacobsiler.com",
     emoji: "📚", color: ["#0FBF94", "#0A8F70"], group: "learn", subject: "words", parentParam: "view=parent", status: "live" },
   { id: "electronics", name: "Electronics Adventure", tag: "Circuits, logic & making", url: "https://electronics.jacobsiler.com",
-    emoji: "⚡", color: ["#E69A00", "#B36B00"], group: "learn", subject: null, parentParam: "", status: "live" },
+    emoji: "⚡", color: ["#E69A00", "#B36B00"], group: "learn", subject: null, progress: "ea", parentParam: "view=parent", status: "live" },
   // Sight Singing is hosted on Firebase Hosting for now. When it gets its new name and domain, change url (and name) here.
   { id: "sing", name: "Sight Singing", tag: "Read and sing music", url: "https://homeschool-math.web.app/",
     emoji: "🎵", color: ["#9B6BE4", "#6F43B8"], group: "learn", subject: null, parentParam: "", mic: true, status: "live" },
