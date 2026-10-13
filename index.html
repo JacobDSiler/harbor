@@ -151,7 +151,10 @@ let loading = false, loadErr = "";
 let parentTab = "kids";
 
 /* ---- data helpers ---- */
-const profiles = () => (S.cache && Array.isArray(S.cache.profiles)) ? S.cache.profiles : [];
+const GRADE_ORDER = ["PS", "PK", "K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "AD"];
+const gradeRank = p => { const i = GRADE_ORDER.indexOf(String(p.gradeId)); return i < 0 ? 99 : i; };
+/* Children are always listed youngest year first, then by name, everywhere in Harbor. */
+const profiles = () => (S.cache && Array.isArray(S.cache.profiles)) ? S.cache.profiles.slice().sort((a, b) => gradeRank(a) - gradeRank(b) || String(a.name || "").localeCompare(String(b.name || ""))) : [];
 const country = () => (S.cache && S.cache.country) || "IE";
 const gradeLabel = p => { const g = window.HARBOR_GRADES[p.gradeId]; return g ? (g[country()] || g.IE) : ""; };
 const subjectOf = k => window.HARBOR_WORD_TOPICS.has(k) ? "words" : "math";
