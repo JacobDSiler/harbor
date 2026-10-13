@@ -137,7 +137,7 @@ const $ = (s, el) => (el || document).querySelector(s);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 /* ---- persistent state (localStorage, always guarded) ---- */
-const defaults = { family: "", child: "", pin: "", notes: {}, hidden: [], cache: null, cachedAt: 0, openMode: "auto" };
+const defaults = { family: "", child: "", pin: "", notes: {}, hidden: [], cache: null, cachedAt: 0, openMode: "auto", pantry: "", pantryHint: 0 };
 let S = Object.assign({}, defaults);
 try { S = Object.assign({}, defaults, JSON.parse(localStorage.getItem(STORE) || "{}")); } catch (e) {}
 const save = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) {} };
@@ -263,12 +263,15 @@ function renderHome(root) {
   <div class="wrap">
     ${kids.length ? `<div class="sailors">${kids.map(p => `<button class="sailor ${String(p.id) === S.child ? "on" : ""}" data-kid="${esc(p.id)}"><span class="av">${esc(p.avatar || "🙂")}</span>${esc(p.name)}</button>`).join("")}</div>`
       : `<div class="hint"><div>⚓ <b>Link your family</b><br><span class="muted">Add your family code to see each child's progress here.</span></div><button class="btn sm" id="linkBtn">Link</button></div>`}
+    ${!S.pantry && !S.pantryHint && home.some(a => a.familyGroup === "pantry") ? `<div class="hint"><div>🏡 <b>Link Our Kitchen &amp; Our Home</b><br><span class="muted">Add your Kitchen family code and they open already signed in.</span></div><div><button class="btn sm" id="pantryBtn">Link</button> <button class="btn sm ghost" id="pantryNo">Not now</button></div></div>` : ""}
     ${learn.length ? `<h2 class="sec">⛵ Learn &amp; play</h2><div class="grid">${learn.map(tile).join("")}</div>` : ""}
     ${home.length ? `<h2 class="sec">🏡 Around the house</h2><div class="grid">${home.map(tile).join("")}</div>` : ""}
     ${getAppCard()}
     <div class="foot">Harbor v${VERSION}</div>
   </div>`;
   $("#parentBtn").onclick = () => go("parent");
+  const pb = $("#pantryBtn"); if (pb) pb.onclick = () => { parentTab = "settings"; go("parent/settings"); };
+  const pn = $("#pantryNo"); if (pn) pn.onclick = () => { S.pantryHint = 1; save(); render(); };
   const lb = $("#linkBtn"); if (lb) lb.onclick = () => { parentTab = "settings"; go("parent/settings"); };
   root.querySelectorAll("[data-kid]").forEach(b => b.onclick = () => { S.child = S.child === b.dataset.kid ? "" : b.dataset.kid; save(); render(); });
   root.querySelectorAll("[data-app]").forEach(b => b.onclick = () => launch(b.dataset.app));
@@ -294,7 +297,8 @@ function launch(id, extra) {
 }
 function appUrl(a, extra) {
   const u = new URL(a.url); u.searchParams.set("from", "harbor");
-  if (S.family) u.searchParams.set("family", S.family);
+  const code = a.familyGroup === "pantry" ? S.pantry : S.family;   // Kitchen/Home use their own WORD-1234 code
+  if (code) u.searchParams.set("family", code);
   if (S.child) u.searchParams.set("child", S.child);
   if (extra) new URLSearchParams(extra).forEach((v, k) => u.searchParams.set(k, v));
   return u.toString();
@@ -306,7 +310,8 @@ function renderApp(root, id) {
   root.innerHTML = `<div id="viewer"><div class="vb"><button class="back" id="vBack">⚓ Harbor</button><b>${a.emoji} ${esc(a.name)}</b><button class="back" id="vOpen" title="Open in browser">↗</button></div>
     <div class="load" id="vLoad">${a.emoji}</div><iframe id="vFrame" title="${esc(a.name)}" allow="fullscreen; autoplay; microphone; camera; clipboard-write; clipboard-read"></iframe></div>`;
   const f = $("#vFrame"); f.addEventListener("load", () => $("#vLoad") && $("#vLoad").classList.add("gone")); f.src = src; setTimeout(() => { const l = $("#vLoad"); if (l) l.classList.add("gone"); }, 8000);
-  $("#vBack").onclick = () => { history.length > 1 ? history.back() : go(""); };
+  // Always leave via the home route. history.back() would step through the framed app's own history first (games, menus) and look like a dead button.
+  $("#vBack").onclick = () => location.replace(location.pathname + location.search + "#/");
   $("#vOpen").onclick = () => window.open(src, "_blank", "noopener");
 }
 
@@ -404,6 +409,9 @@ function settingsView() {
     <input class="inp mt12" id="code" placeholder="MA-XXXX" value="${esc(S.family)}" autocapitalize="characters" autocomplete="off" maxlength="12">
     <div class="row mt12"><button class="btn sp" id="saveCode">${S.family ? "Update code" : "Link family"}</button>${S.family ? `<button class="btn danger" id="unlink">Unlink</button>` : ""}</div>
     <p class="muted mt12" style="font-size:.84rem">${esc(syncLine())}</p></div>
+    <div class="card"><h3>Our Kitchen &amp; Our Home family</h3><p class="muted mt8" style="font-size:.9rem">The family code from Our Kitchen (like APPLE-1234). Harbor passes it on so both apps open already signed in.</p>
+    <input class="inp mt12" id="pcode" placeholder="WORD-1234" value="${esc(S.pantry)}" autocapitalize="characters" autocomplete="off" maxlength="20">
+    <div class="row mt12"><button class="btn sp" id="savePantry">${S.pantry ? "Update code" : "Link Kitchen &amp; Home"}</button>${S.pantry ? `<button class="btn danger" id="unlinkPantry">Unlink</button>` : ""}</div></div>
     <div class="card"><h3>Opening apps</h3><p class="muted mt8" style="font-size:.9rem">"Inside Harbor" keeps everyone in one place. "In a browser window" uses the phone's browser, which remembers your Math and Words logins.</p>
     <select class="inp mt12" id="openMode"><option value="auto">Automatic (recommended)</option><option value="frame">Inside Harbor</option><option value="browser">In a browser window</option></select></div>
     <div class="card"><h3>Parent PIN</h3><p class="muted mt8" style="font-size:.9rem">Harbor accepts your Harbor PIN${S.cache && S.cache.parentPin ? " or the PIN set in Math/Words" : ""}.</p>
@@ -427,6 +435,13 @@ function wireParent(root) {
     S.family = v; save(); await refresh(true);
     toast(loadErr && !S.cache ? loadErr : "Family linked ⚓"); render();
   };
+  const sp = $("#savePantry");
+  if (sp) sp.onclick = () => {
+    const raw = $("#pcode").value.toUpperCase().replace(/[^A-Z0-9]/g, ""), m = raw.match(/^([A-Z]+)(\d+)$/);
+    if (!m || raw === "ADMIN1337") return toast("That does not look like a Kitchen family code (like APPLE-1234).");
+    S.pantry = m[1] + "-" + m[2]; save(); toast("Kitchen & Home linked 🏡"); render();
+  };
+  const up = $("#unlinkPantry"); if (up) up.onclick = () => { if (confirm("Unlink Our Kitchen and Our Home from Harbor? They keep their own login.")) { S.pantry = ""; save(); render(); } };
   const ul = $("#unlink"); if (ul) ul.onclick = () => { if (confirm("Unlink this device from " + S.family + "? Your data stays safe in the cloud.")) { S.family = ""; S.child = ""; S.cache = null; S.cachedAt = 0; save(); render(); } };
   const cp = $("#chgPin"); if (cp) cp.onclick = () => { pinBuf = ""; pinErr = ""; pinMode = "create"; unlockedUntil = 0; go("pin"); };
 }

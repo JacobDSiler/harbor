@@ -21,6 +21,8 @@ if (isNative) {
   // Android Back: step back through Harbor's screens; leave the app only from the home screen.
   App.addListener('backButton', () => {
     const h = location.hash.replace(/^#\/?/, '');
-    if (h) history.back(); else App.exitApp();
+    // In a framed app, history.back() would walk the app's own history first; go straight home instead.
+    if (h.startsWith('app/')) location.replace(location.pathname + location.search + '#/');
+    else if (h) history.back(); else App.exitApp();
   });
 }

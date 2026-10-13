@@ -10,6 +10,7 @@
  *   subject   "math" | "words" | null  -> links the app to progress shown in the Parent area
  *   parentParam  query string appended to open the app's own parent/teacher view
  *   status    "live" | "soon"
+ *   familyGroup  "pantry" for Our Kitchen / Our Home: they use their own WORD-1234 family code (set in Parent > Settings), not the Math/Words one.
  *   mic       true if the app uses the microphone. In the native app these always open in the browser window
  *             (Harbor has no microphone permission of its own). Works inside the frame on the website.
  *   open      optional: "frame" (inside Harbor) or "browser" (system browser / Custom Tab). Default: browser in the
@@ -26,9 +27,9 @@ window.HARBOR_APPS = [
   { id: "sing", name: "Sight Singing", tag: "Read and sing music", url: "https://homeschool-math.web.app/",
     emoji: "🎵", color: ["#9B6BE4", "#6F43B8"], group: "learn", subject: null, parentParam: "", mic: true, status: "live" },
   { id: "home", name: "Our Home", tag: "Our family's home base", url: "https://home.jacobsiler.com",
-    emoji: "🏡", color: ["#3E9FA8", "#2B7A83"], group: "home", subject: null, parentParam: "", status: "live" },
+    emoji: "🏡", color: ["#3E9FA8", "#2B7A83"], group: "home", subject: null, parentParam: "", familyGroup: "pantry", status: "live" },
   { id: "kitchen", name: "Our Kitchen", tag: "Pantry, meals & shopping", url: "https://kitchen.jacobsiler.com",
-    emoji: "🍳", color: ["#FF7A6B", "#D9493A"], group: "home", subject: null, parentParam: "", status: "live" },
+    emoji: "🍳", color: ["#FF7A6B", "#D9493A"], group: "home", subject: null, parentParam: "", familyGroup: "pantry", status: "live" },
   { id: "fueld", name: "Fueld", tag: "Athletic nutrition & training", url: "https://fueld.jacobsiler.com",
     emoji: "🥗", color: ["#7CB82F", "#55871A"], group: "home", subject: null, parentParam: "", status: "live" },
   { id: "forge", name: "Forge Planner", tag: "Plan, focus & get things done", url: "https://forge.jacobsiler.com",
