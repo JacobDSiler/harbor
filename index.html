@@ -38,9 +38,8 @@ button{font-family:inherit;cursor:pointer}
 .hello span{display:block;font-family:'Nunito';font-weight:600;font-size:.95rem;opacity:.85;margin-top:2px}
 
 /* Sailors */
-.sailors{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px;margin:-30px 0 6px;position:relative;scrollbar-width:none}
-.sailors::-webkit-scrollbar{display:none}
-.sailor{flex:none;background:#fff;border:3px solid transparent;border-radius:18px;padding:10px 16px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(26,46,74,.12);font-weight:800;color:var(--navy);font-size:1rem}
+.sailors{display:flex;flex-wrap:wrap;gap:8px;padding:4px 2px 10px;margin:-30px 0 6px;position:relative}   /* wraps onto more rows so every child is visible, nobody hidden off-screen */
+.sailor{flex:0 1 auto;max-width:100%;background:#fff;border:3px solid transparent;border-radius:18px;padding:8px 14px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(26,46,74,.12);font-weight:800;color:var(--navy);font-size:1rem}
 .sailor .av{font-size:1.6rem}
 .sailor.on{border-color:var(--blue);background:#f0f5ff}
 .hint{background:#fff;border-radius:var(--r);box-shadow:0 4px 16px rgba(26,46,74,.1);padding:14px 16px;margin:-30px 0 6px;position:relative;display:flex;gap:12px;align-items:center;font-size:.92rem}
