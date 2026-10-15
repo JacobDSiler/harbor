@@ -362,6 +362,7 @@ function renderHome(root) {
   const tile = a => {
     let badge = "";
     if (me && a.subject) { const s = summary(me, a.subject); if (s.pct != null) badge = `<span class="bd">${s.pct}% right</span>`; }
+    if (me && a.progress === "ea") { const e = eaSummary(me); if (e.any) badge = `<span class="bd">${e.stars} ★ earned</span>`; }
     if (a.status === "soon" || !a.url) return `<button class="tile soon" disabled><span class="em">${a.emoji}</span><span class="nm">${esc(a.name)}</span><span class="tg">Coming soon</span></button>`;
     return `<button class="tile" data-app="${a.id}" style="background:linear-gradient(145deg,${a.color[0]},${a.color[1]})">${badge}<span class="em">${a.emoji}</span><span class="nm">${esc(a.name)}</span><span class="tg">${esc(a.tag)}</span></button>`;
   };
@@ -495,6 +496,7 @@ function mergeProfileData(a, b) {
   }
   if (a.customBooks || b.customBooks) { const ids = new Set(), out = []; [...(a.customBooks || []), ...(b.customBooks || [])].forEach(x => { if (!ids.has(x.id)) { ids.add(x.id); out.push(x); } }); o.customBooks = out; }
   if (a.terms || b.terms) o.terms = Object.assign({}, b.terms, a.terms);
+  if (a.gameLevels || b.gameLevels) { const g = Object.assign({}, b.gameLevels, a.gameLevels); for (const k in (b.gameLevels || {})) g[k] = Math.max(g[k] || 0, b.gameLevels[k] || 0); o.gameLevels = g; }
   o.createdAt = Math.min(a.createdAt || Infinity, b.createdAt || Infinity); if (!isFinite(o.createdAt)) delete o.createdAt;
   return o;
 }
