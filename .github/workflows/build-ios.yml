@@ -1,0 +1,91 @@
+name: Build iOS
+
+# Always: proves the iOS project compiles (unsigned simulator build, no Apple account needed).
+# When the Apple secrets exist: signs with your Apple Developer account, makes Harbor.ipa and uploads it to TestFlight.
+on:
+  push:
+    branches: [main, master]
+    paths: ['index.html', 'apps.js', 'manifest.json', 'icon*.png', 'icon.svg', 'native/**', '.github/workflows/build-ios.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    runs-on: macos-26
+    env:
+      HAS_APPLE: ${{ secrets.ASC_KEY_P8_BASE64 != '' && secrets.ASC_KEY_ID != '' && secrets.ASC_ISSUER_ID != '' && secrets.APPLE_TEAM_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: native/package-lock.json
+
+      - name: Install & build web assets
+        working-directory: native
+        run: |
+          npm ci
+          npm install --no-save @capacitor/ios@^8 @capacitor/assets@^3
+          npm run build:www
+
+      - name: Create the iOS project (kept out of git; regenerated each build)
+        working-directory: native
+        run: |
+          [ -d ios ] || npx cap add ios
+          npx @capacitor/assets generate --ios || echo "icon generation skipped"
+          npx cap sync ios
+          PLIST=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$PLIST"
+
+      - name: Build for the iOS simulator (unsigned compile check)
+        working-directory: native
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator \
+            -derivedDataPath build/sim CODE_SIGNING_ALLOWED=NO build | tail -n 25
+          mkdir -p ../out && cd build/sim/Build/Products/Debug-iphonesimulator && zip -qr "$GITHUB_WORKSPACE/out/Harbor-simulator.zip" App.app
+
+      - name: Sign, archive and export Harbor.ipa
+        if: env.HAS_APPLE == 'true'
+        working-directory: native
+        env:
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          P8: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          mkdir -p ~/.private_keys
+          echo "$P8" | base64 --decode > ~/.private_keys/AuthKey_${KEY_ID}.p8
+          AUTH="-allowProvisioningUpdates -authenticationKeyPath $HOME/.private_keys/AuthKey_${KEY_ID}.p8 -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER"
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PL
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>$TEAM</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          PL
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Harbor.xcarchive" $AUTH DEVELOPMENT_TEAM=$TEAM CODE_SIGN_STYLE=Automatic \
+            MARKETING_VERSION=1.0 CURRENT_PROJECT_VERSION=${{ github.run_number }} archive | tail -n 25
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Harbor.xcarchive" -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" $AUTH | tail -n 15
+          cp "$RUNNER_TEMP"/export/*.ipa "$GITHUB_WORKSPACE/out/Harbor.ipa"
+
+      - name: Upload to TestFlight
+        if: env.HAS_APPLE == 'true'
+        env:
+          KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+        run: xcrun altool --upload-app -f out/Harbor.ipa -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Harbor-ios
+          path: out/*
+          retention-days: 30
