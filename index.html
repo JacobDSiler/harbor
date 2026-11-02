@@ -728,7 +728,7 @@ function settingsView() {
     <select class="inp mt12" id="openMode"><option value="auto">Automatic (recommended)</option><option value="frame">Inside Harbor</option><option value="browser">In a browser window</option></select></div>
     <div class="card"><h3>Parent PIN</h3><p class="muted mt8" style="font-size:.9rem">Harbor accepts your Harbor PIN${S.cache && S.cache.parentPin ? " or the PIN set in Math/Words" : ""}.</p>
     <button class="btn ghost mt12" id="chgPin">${S.pin ? "Change Harbor PIN" : "Set Harbor PIN"}</button></div>
-    <div class="card"><h3>About</h3><p class="muted mt8" style="font-size:.9rem">Harbor v${VERSION} reads your family's progress from Firebase. It never changes it.</p></div>`;
+    <div class="card"><h3>About</h3><p class="muted mt8" style="font-size:.9rem">Harbor v${VERSION} shows your family's progress from Firebase. It only changes the children list when you add, edit, remove or merge a child.</p><p class="mt8" style="font-size:.9rem"><a href="privacy.html" target="_blank" rel="noopener">Privacy policy</a></p></div>`;
 }
 function wireParent(root) {
   root.querySelectorAll("[data-go]").forEach(b => b.onclick = () => go(b.dataset.go));
