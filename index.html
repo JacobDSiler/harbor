@@ -495,18 +495,21 @@ function syncLine() {
 }
 /* ---- merge duplicate learners: purely additive. Everything from the duplicates is folded into the one you keep
    (progress is added together, histories are combined) and a full copy of the originals is saved to the cloud first. ---- */
-function sumRec(x, y) {
+function sumRec(x, y, same) {
+  /* same = true when the two records share history (earlier merge / copy): take the larger number so nothing is counted twice. */
   const o = Object.assign({}, y, x);
-  for (const k in y) if (typeof y[k] === "number" && typeof x[k] === "number") o[k] = k === "ls" ? Math.max(x[k], y[k]) : x[k] + y[k];
+  for (const k in y) if (typeof y[k] === "number" && typeof x[k] === "number") o[k] = (k === "ls" || same) ? Math.max(x[k], y[k]) : x[k] + y[k];
   return o;
 }
+const quizKey = q => (q.ts || q.date || 0) + "|" + q.score + "|" + q.total;
 const RL_RANK = { notstarted: 1, reading: 2, finished: 3 };
 function mergeProfileData(a, b) {
   const o = Object.assign({}, b, a), ta = a.topicProgress || {}, tb = b.topicProgress || {}, tp = {};
-  new Set([...Object.keys(ta), ...Object.keys(tb)]).forEach(k => { tp[k] = ta[k] && tb[k] ? sumRec(ta[k], tb[k]) : (ta[k] || tb[k]); });
+  const ka = new Set((a.quizHistory || []).map(quizKey)), shared = (b.quizHistory || []).some(q => ka.has(quizKey(q)));   // shared history => merged before, don't double count
+  new Set([...Object.keys(ta), ...Object.keys(tb)]).forEach(k => { tp[k] = ta[k] && tb[k] ? sumRec(ta[k], tb[k], shared) : (ta[k] || tb[k]); });
   o.topicProgress = tp;
   const seen = new Set();
-  o.quizHistory = [...(a.quizHistory || []), ...(b.quizHistory || [])].filter(q => { const k = q.ts + "|" + q.score + "|" + q.total + "|" + (q.pct == null ? "" : q.pct); if (seen.has(k)) return false; seen.add(k); return true; }).sort((x, y) => (x.ts || 0) - (y.ts || 0));
+  o.quizHistory = [...(a.quizHistory || []), ...(b.quizHistory || [])].filter(q => { const k = quizKey(q); if (seen.has(k)) return false; seen.add(k); return true; }).sort((x, y) => (x.ts || x.date || 0) - (y.ts || y.date || 0));
   if (a.readingList || b.readingList) {
     const r = Object.assign({}, b.readingList, a.readingList);
     for (const k in (b.readingList || {})) if ((RL_RANK[b.readingList[k]] || 0) > (RL_RANK[r[k]] || 0)) r[k] = b.readingList[k];
@@ -562,13 +565,15 @@ async function mergeLearners(keepId, dupIds) {
   if (S.child && dups.has(String(S.child))) S.child = String(keepId);
   save(); await refresh(true);
 }
-async function mergeFromFamily(otherCode, plan) {
-  /* plan: [{otherId, target: <current child id> | "new"}] — the other family is only read, never changed. */
+async function mergeFromFamily(otherCode, plan, opts) {
+  /* plan: [{otherId, target: <current child id> | "new"}]. Without opts.tidy the other family is only read. With opts.tidy it is archived
+     (full copy kept inside the merge backup document) and then removed, so no stray family is left behind. */
+  opts = opts || {};
   const { F, db } = await fsLoad();
   const oSnap = await F.getDoc(F.doc(db, "families", otherCode));
   if (!oSnap.exists()) throw new Error("no-family");
-  const oList = oSnap.data().profiles || [], oProgs = [];
-  for (const sd of SIDE) { const d = await F.getDoc(F.doc(db, "families", otherCode + sd.suf)).catch(() => null); oProgs.push((d && d.exists() && d.data().prog) || {}); }
+  const oList = oSnap.data().profiles || [], oProgs = [], oDocs = { main: oSnap.data() };
+  for (const sd of SIDE) { const d = await F.getDoc(F.doc(db, "families", otherCode + sd.suf)).catch(() => null); oProgs.push((d && d.exists() && d.data().prog) || {}); if (d && d.exists()) oDocs[sd.key] = d.data(); }
   const ref = F.doc(db, "families", S.family), refs = SIDE.map(sd => F.doc(db, "families", S.family + sd.suf)), bkRef = F.doc(db, "families", S.family + "_merge_" + Date.now());
   await F.runTransaction(db, async tx => {
     const snap = await tx.get(ref), sideSnaps = [];
@@ -590,8 +595,11 @@ async function mergeFromFamily(otherCode, plan) {
     });
     const bk = { app: "harbor-merge-backup", ts: Date.now(), keep: JSON.stringify(snap.data().profiles || []), merged: JSON.stringify({ from: otherCode, plan }) };
     SIDE.forEach((sd, n) => { bk[sd.key] = JSON.stringify(datas[n] ? datas[n].prog || {} : {}); });
+    if (opts.tidy) bk.source = JSON.stringify({ code: otherCode, docs: oDocs });   // everything needed to restore the old family
     tx.set(bkRef, bk);
     tx.update(ref, { profiles: list });
+    if (!opts.tidy) tx.update(F.doc(db, "families", otherCode), { retiredInto: S.family, retiredAt: Date.now() });   // flagged so "Tidy old family records" can find it later
+    if (opts.tidy) { tx.delete(F.doc(db, "families", otherCode)); SIDE.forEach(sd => { if (oDocs[sd.key]) tx.delete(F.doc(db, "families", otherCode + sd.suf)); }); }
     SIDE.forEach((sd, n) => { if (Object.keys(progs[n]).length) tx.set(refs[n], Object.assign({ app: sd.app }, datas[n], { prog: progs[n], ts: Date.now() })); });
   });
   save(); await refresh(true);
@@ -616,18 +624,51 @@ function importSheet() {
         other = (sn.data().profiles || []);
         if (!other.length) { out.innerHTML = '<p class="muted">That family has no children in it.</p>'; return; }
         out.innerHTML = other.map(o => {
-          const guess = kids.find(k => String(k.name).trim().toLowerCase() === String(o.name).trim().toLowerCase());
+          const nn = n => String(n || "").normalize("NFD").replace(/[^A-Za-z]/g, "").toLowerCase(), guess = kids.find(k => nn(k.name) === nn(o.name));
           return `<div class="li" style="align-items:center;gap:10px"><span style="font-size:1.6rem">${esc(o.avatar || "🙂")}</span><span class="sp"><b>${esc(o.name)}</b><br><small class="muted">${esc(gradeLabel(o))} · ${esc(kidStats(o))}</small></span>
           <select class="inp" data-of="${esc(o.id)}" style="max-width:48%">${opts(guess ? String(guess.id) : "")}</select></div>`; }).join("") +
-          `<div class="row mt16"><button class="btn sp" id="ofGo">Bring them in</button></div>`;
+          `<label class="row mt16" style="gap:8px;align-items:flex-start;font-size:.88rem"><input type="checkbox" id="ofTidy" checked style="margin-top:3px"><span>Tidy up: remove the old family after bringing everyone in. A full backup is kept so it can be restored.</span></label>
+          <div class="row mt12"><button class="btn sp" id="ofGo">Bring them in</button></div>`;
         el.querySelector("#ofGo").onclick = async () => {
           const plan = [...el.querySelectorAll("[data-of]")].filter(s => s.value !== "skip").map(s => ({ otherId: s.dataset.of, target: s.value }));
           if (!plan.length) return toast("Nothing chosen.");
+          const skipped = [...el.querySelectorAll("[data-of]")].some(s => s.value === "skip"), tidy = el.querySelector("#ofTidy").checked && !skipped;
+          if (el.querySelector("#ofTidy").checked && skipped) toast("Some children were skipped, so the old family will be kept.");
+          if (tidy && !confirm("Bring everyone in and then remove family " + code + "?\n\nA full backup of it is saved with the merge, so it can be restored.")) return;
           const b = el.querySelector("#ofGo"); b.disabled = true; b.textContent = "Bringing in…";
-          try { await mergeFromFamily(code, plan); close(); toast("Done ⚓"); render(); }
+          try { await mergeFromFamily(code, plan, { tidy }); close(); toast(tidy ? "Done, old family tidied ⚓" : "Done ⚓"); render(); }
           catch (e) { console.warn(e); b.disabled = false; b.textContent = "Bring them in"; toast("Could not finish. Check your connection and try again."); }
         };
       } catch (e) { out.innerHTML = '<p class="muted">Could not reach the cloud. Try again.</p>'; }
+    };
+  });
+}
+async function tidySheet() {
+  const { F, db } = await fsLoad();
+  let found = [];
+  try { const q = await F.getDocs(F.query(F.collection(db, "families"), F.where("retiredInto", "==", S.family))); q.forEach(d => found.push({ code: d.id, data: d.data() })); }
+  catch (e) { console.warn(e); return toast("Could not look for old records. Check your connection."); }
+  sheet(`<h3>Old family records</h3>` + (found.length
+    ? `<p class="muted mt8" style="font-size:.9rem">These families were already merged into ${esc(S.family)}. Removing them keeps your list tidy. A full backup of each is saved first, so they can be restored.</p>
+       <div class="mt12">${found.map(f => `<div class="li"><span class="sp"><b>${esc(f.code)}</b><br><small class="muted">${esc((f.data.profiles || []).map(p => p.name).join(", ") || "no children")}</small></span></div>`).join("")}</div>
+       <div class="row mt16"><button class="btn danger" id="tdGo">Remove ${found.length} old famil${found.length === 1 ? "y" : "ies"}</button><button class="btn ghost" id="tdCancel">Cancel</button></div>`
+    : `<p class="muted mt8">Nothing to tidy. Families you merge in stay listed here until you remove them.</p><div class="row mt16"><button class="btn ghost" id="tdCancel">Close</button></div>`),
+  (el, close) => {
+    el.querySelector("#tdCancel").onclick = close;
+    const go = el.querySelector("#tdGo"); if (!go) return;
+    go.onclick = async () => {
+      if (!confirm("Remove " + found.length + " old famil" + (found.length === 1 ? "y" : "ies") + "?\n\nA full backup of each is saved first.")) return;
+      go.disabled = true; go.textContent = "Removing…";
+      try {
+        for (const f of found) {
+          const docs = { main: f.data };
+          for (const sd of SIDE) { const d = await F.getDoc(F.doc(db, "families", f.code + sd.suf)).catch(() => null); if (d && d.exists()) docs[sd.key] = d.data(); }
+          await F.setDoc(F.doc(db, "families", S.family + "_tidy_" + Date.now() + "_" + f.code.replace(/[^A-Za-z0-9]/g, "")), { app: "harbor-tidy-backup", ts: Date.now(), source: JSON.stringify({ code: f.code, docs }) });
+          for (const sd of SIDE) if (docs[sd.key]) await F.deleteDoc(F.doc(db, "families", f.code + sd.suf));
+          await F.deleteDoc(F.doc(db, "families", f.code));
+        }
+        close(); toast("Tidied ⚓");
+      } catch (e) { console.warn(e); go.disabled = false; go.textContent = "Try again"; toast("Could not finish. Nothing was lost."); }
     };
   });
 }
@@ -721,6 +762,7 @@ function settingsView() {
     <input class="inp mt12" id="code" data-famcode placeholder="MA-XXXX" value="${esc(S.family)}" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="7">
     <div class="row mt12"><button class="btn sp" id="saveCode">${S.family ? "Update code" : "Link family"}</button>${S.family ? `<button class="btn danger" id="unlink">Unlink</button>` : `<button class="btn sec2" id="startFam">Start new</button>`}</div>
     <p class="muted mt12" style="font-size:.84rem">${esc(syncLine())}</p></div>
+${S.family ? `<div class="card"><h3>Old family records</h3><p class="muted mt8" style="font-size:.9rem">Merged another family code in? Remove the leftover records here. A backup of each is kept.</p><button class="btn ghost mt12" id="tidyOld">Tidy old records</button></div>` : ""}
     <div class="card"><h3>Our Kitchen &amp; Our Home family</h3><p class="muted mt8" style="font-size:.9rem">The family code from Our Kitchen (like APPLE-1234). Harbor passes it on so both apps open already signed in.</p>
     <input class="inp mt12" id="pcode" placeholder="WORD-1234" value="${esc(S.pantry)}" autocapitalize="characters" autocomplete="off" maxlength="20">
     <div class="row mt12"><button class="btn sp" id="savePantry">${S.pantry ? "Update code" : "Link Kitchen &amp; Home"}</button>${S.pantry ? `<button class="btn danger" id="unlinkPantry">Unlink</button>` : ""}</div></div>
@@ -739,6 +781,7 @@ function wireParent(root) {
   });
   const om = $("#openMode");
   if (om) { om.value = S.openMode || "auto"; om.onchange = () => { S.openMode = om.value; save(); toast("Saved"); }; }
+  const td = $("#tidyOld"); if (td) td.onclick = () => tidySheet();
   const sc = $("#saveCode");
   if (sc) sc.onclick = async () => {
     const v = fmtFam($("#code").value);
