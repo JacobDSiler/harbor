@@ -27,7 +27,7 @@ window.HARBOR_APPS = [
   { id: "music", name: "Music Adventure", tag: "Listen, play & wonder", url: "https://music.jacobsiler.com",
     emoji: "🎼", color: ["#6B4FD8", "#4a31a0"], group: "learn", subject: null, progress: "mu", parentParam: "view=parent", status: "live" },
   { id: "code", name: "Programming Adventure", tag: "Code, create & solve", url: "https://code.jacobsiler.com",
-    emoji: "💻", color: ["#12B58C", "#0a7a5c"], group: "learn", subject: null, parentParam: "view=parent", status: "soon" },
+    emoji: "💻", color: ["#12B58C", "#0a7a5c"], group: "learn", subject: null, progress: "pg", parentParam: "view=parent", status: "live" },
   // Sight Singing is hosted on Firebase Hosting for now. When it gets its new name and domain, change url (and name) here.
   { id: "sing", name: "Sight Singing", tag: "Read and sing music", url: "https://homeschool-math.web.app/",
     emoji: "🎵", color: ["#9B6BE4", "#6F43B8"], group: "learn", subject: null, progress: "ss", parentParam: "", mic: true, status: "live" },

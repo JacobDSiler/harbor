@@ -203,9 +203,9 @@ async function fsLoad() {
 }
 async function fetchFamily(code) {
   const { F, db } = await fsLoad();
-  const [snap, ea, mu, ss] = await Promise.all([F.getDoc(F.doc(db, "families", code)), F.getDoc(F.doc(db, "families", code + "_ea")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_mu")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_ss")).catch(() => null)]);
+  const [snap, ea, mu, ss, pg] = await Promise.all([F.getDoc(F.doc(db, "families", code)), F.getDoc(F.doc(db, "families", code + "_ea")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_mu")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_ss")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_pg")).catch(() => null)]);
   if (!snap.exists()) return null;
-  const d = snap.data(); d._ea = (ea && ea.exists() && ea.data().prog) || {}; d._mu = (mu && mu.exists() && mu.data().prog) || {}; d._ss = (ss && ss.exists() && ss.data().prog) || {};
+  const d = snap.data(); d._ea = (ea && ea.exists() && ea.data().prog) || {}; d._mu = (mu && mu.exists() && mu.data().prog) || {}; d._ss = (ss && ss.exists() && ss.data().prog) || {}; d._pg = (pg && pg.exists() && pg.data().prog) || {};
   return d;
 }
 /* ---- central roster: Harbor is the one place to add / edit / remove learners ----
@@ -302,7 +302,7 @@ function eaSummary(p) { return sideSummary(p, "ea"); }
 function muSummary(p) { return sideSummary(p, "mu"); }
 function ssSummary(p) { return sideSummary(p, "ss"); }
 /* apps whose progress Harbor reads from the family's side record (_ea Electronics, _mu Music, _ss Sight Singing / Cantillo) */
-const isSide = a => a.progress === "ea" || a.progress === "mu" || a.progress === "ss";
+const isSide = a => a.progress === "ea" || a.progress === "mu" || a.progress === "ss" || a.progress === "pg";
 /* Sight Singing detail: best score per song, interval/note drills, recent average. */
 function ssDetail(p) {
   const pr = (S.cache && S.cache.ss && S.cache.ss[p.id]) || null; if (!pr) return "";
@@ -318,6 +318,7 @@ function sideSummary(p, key) {
   if (!pr) return { stars: 0, badges: 0, last: 0, listened: 0, any: false };
   let stars = 0, last = 0;
   Object.values(pr.labs || {}).forEach(x => { stars += x.stars || 0; last = Math.max(last, x.at || 0); });
+  Object.values(pr.ch || {}).forEach(x => { stars += x.stars || 0; last = Math.max(last, x.at || 0); });   // Programming Adventure challenges
   Object.values(pr.quiz || {}).forEach(x => { stars += (x.pct >= 90 ? 3 : x.pct >= 70 ? 2 : 1); last = Math.max(last, x.at || 0); });
   Object.values(pr.games || {}).forEach(x => { stars += x.stars || 0; last = Math.max(last, x.at || 0); });
   const badges = Object.keys(pr.badges || {}).length, listened = Object.keys(pr.listened || {}).length;
@@ -330,7 +331,7 @@ async function refresh(quiet) {
   try {
     const d = await fetchFamily(S.family);
     if (!d) { loadErr = "That family code was not found."; }
-    else { S.cache = { profiles: d.profiles || [], country: d.country || "IE", parentPin: d.parentPin || "", ea: d._ea || {}, mu: d._mu || {}, ss: d._ss || {} }; S.cachedAt = Date.now();
+    else { S.cache = { profiles: d.profiles || [], country: d.country || "IE", parentPin: d.parentPin || "", ea: d._ea || {}, mu: d._mu || {}, ss: d._ss || {}, pg: d._pg || {} }; S.cachedAt = Date.now();
       if (S.child && !profiles().some(p => String(p.id) === S.child)) S.child = ""; save(); }
   } catch (e) { loadErr = "Could not reach the family data. Showing the last saved copy."; }
   loading = false; render();
@@ -524,6 +525,7 @@ function mergeProfileData(a, b) {
 }
 function mergeEA(x, y) {
   const m = { labs: Object.assign({}, x.labs), quiz: Object.assign({}, x.quiz), missions: Object.assign({}, x.missions, y.missions), games: Object.assign({}, x.games) };
+  if (x.ch || y.ch) { m.ch = Object.assign({}, x.ch); for (const k in (y.ch || {})) { const c = m.ch[k], g = y.ch[k]; m.ch[k] = !c ? g : { stars: Math.max(c.stars || 0, g.stars || 0), tries: Math.max(c.tries || 0, g.tries || 0), at: Math.max(c.at || 0, g.at || 0) }; } }
   for (const k in (y.labs || {})) { const c = m.labs[k]; if (!c || (y.labs[k].stars || 0) > (c.stars || 0)) m.labs[k] = y.labs[k]; }
   for (const k in (y.quiz || {})) { const c = m.quiz[k]; if (!c || (y.quiz[k].pct || 0) > (c.pct || 0)) m.quiz[k] = y.quiz[k]; }
   for (const k in (y.games || {})) { const c = m.games[k], g = y.games[k];
@@ -537,7 +539,7 @@ function mergeEA(x, y) {
   Object.keys(x).forEach(k => { if (!(k in m)) m[k] = x[k]; });
   return m;
 }
-const SIDE = [{ key: "ea", suf: "_ea", app: "electronics-adventure" }, { key: "mu", suf: "_mu", app: "music-adventure" }, { key: "ss", suf: "_ss", app: "cantillo" }];
+const SIDE = [{ key: "ea", suf: "_ea", app: "electronics-adventure" }, { key: "mu", suf: "_mu", app: "music-adventure" }, { key: "ss", suf: "_ss", app: "cantillo" }, { key: "pg", suf: "_pg", app: "programming-adventure" }];
 async function mergeLearners(keepId, dupIds) {
   const { F, db } = await fsLoad(), ref = F.doc(db, "families", S.family), refs = SIDE.map(sd => F.doc(db, "families", S.family + sd.suf)),
     bkRef = F.doc(db, "families", S.family + "_merge_" + Date.now()), dups = new Set(dupIds.map(String));
