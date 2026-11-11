@@ -203,9 +203,9 @@ async function fsLoad() {
 }
 async function fetchFamily(code) {
   const { F, db } = await fsLoad();
-  const [snap, ea, mu, ss, pg] = await Promise.all([F.getDoc(F.doc(db, "families", code)), F.getDoc(F.doc(db, "families", code + "_ea")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_mu")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_ss")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_pg")).catch(() => null)]);
+  const [snap, ea, mu, ss, pg, ir] = await Promise.all([F.getDoc(F.doc(db, "families", code)), F.getDoc(F.doc(db, "families", code + "_ea")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_mu")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_ss")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_pg")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_ir")).catch(() => null)]);
   if (!snap.exists()) return null;
-  const d = snap.data(); d._ea = (ea && ea.exists() && ea.data().prog) || {}; d._mu = (mu && mu.exists() && mu.data().prog) || {}; d._ss = (ss && ss.exists() && ss.data().prog) || {}; d._pg = (pg && pg.exists() && pg.data().prog) || {};
+  const d = snap.data(); d._ea = (ea && ea.exists() && ea.data().prog) || {}; d._mu = (mu && mu.exists() && mu.data().prog) || {}; d._ss = (ss && ss.exists() && ss.data().prog) || {}; d._pg = (pg && pg.exists() && pg.data().prog) || {}; d._ir = (ir && ir.exists() && ir.data().prog) || {};
   return d;
 }
 /* ---- central roster: Harbor is the one place to add / edit / remove learners ----
@@ -302,7 +302,7 @@ function eaSummary(p) { return sideSummary(p, "ea"); }
 function muSummary(p) { return sideSummary(p, "mu"); }
 function ssSummary(p) { return sideSummary(p, "ss"); }
 /* apps whose progress Harbor reads from the family's side record (_ea Electronics, _mu Music, _ss Sight Singing / Cantillo) */
-const isSide = a => a.progress === "ea" || a.progress === "mu" || a.progress === "ss" || a.progress === "pg";
+const isSide = a => a.progress === "ea" || a.progress === "mu" || a.progress === "ss" || a.progress === "pg" || a.progress === "ir";
 /* Sight Singing detail: best score per song, interval/note drills, recent average. */
 function ssDetail(p) {
   const pr = (S.cache && S.cache.ss && S.cache.ss[p.id]) || null; if (!pr) return "";
@@ -331,7 +331,7 @@ async function refresh(quiet) {
   try {
     const d = await fetchFamily(S.family);
     if (!d) { loadErr = "That family code was not found."; }
-    else { S.cache = { profiles: d.profiles || [], country: d.country || "IE", parentPin: d.parentPin || "", ea: d._ea || {}, mu: d._mu || {}, ss: d._ss || {}, pg: d._pg || {} }; S.cachedAt = Date.now();
+    else { S.cache = { profiles: d.profiles || [], country: d.country || "IE", parentPin: d.parentPin || "", ea: d._ea || {}, mu: d._mu || {}, ss: d._ss || {}, pg: d._pg || {}, ir: d._ir || {} }; S.cachedAt = Date.now();
       if (S.child && !profiles().some(p => String(p.id) === S.child)) S.child = ""; save(); }
   } catch (e) { loadErr = "Could not reach the family data. Showing the last saved copy."; }
   loading = false; render();
@@ -539,7 +539,7 @@ function mergeEA(x, y) {
   Object.keys(x).forEach(k => { if (!(k in m)) m[k] = x[k]; });
   return m;
 }
-const SIDE = [{ key: "ea", suf: "_ea", app: "electronics-adventure" }, { key: "mu", suf: "_mu", app: "music-adventure" }, { key: "ss", suf: "_ss", app: "cantillo" }, { key: "pg", suf: "_pg", app: "programming-adventure" }];
+const SIDE = [{ key: "ea", suf: "_ea", app: "electronics-adventure" }, { key: "mu", suf: "_mu", app: "music-adventure" }, { key: "ss", suf: "_ss", app: "cantillo" }, { key: "pg", suf: "_pg", app: "programming-adventure" }, { key: "ir", suf: "_ir", app: "irish-studies" }];
 async function mergeLearners(keepId, dupIds) {
   const { F, db } = await fsLoad(), ref = F.doc(db, "families", S.family), refs = SIDE.map(sd => F.doc(db, "families", S.family + sd.suf)),
     bkRef = F.doc(db, "families", S.family + "_merge_" + Date.now()), dups = new Set(dupIds.map(String));
@@ -737,7 +737,7 @@ function renderChild(root, id) {
   }).join("");
   const eaCard = APPS.filter(a => isSide(a) && !S.hidden.includes(a.id)).map(sa => { const ea = sideSummary(p, sa.progress);
     return `<div class="card"><div class="row"><h3 class="sp">${sa.emoji} ${esc(sa.name)}</h3><button class="btn sm sec2" data-open="${sa.id}" data-extra="${esc(sa.parentParam)}">Open parent view</button></div>
-    ${ea.any ? `<div class="stat mt12"><span>${ea.stars} stars earned${ea.listened ? " · " + ea.listened + " pieces heard" : ""}</span><span>${ea.badges} badge${ea.badges === 1 ? "" : "s"}</span></div><p class="muted mt8" style="font-size:.84rem">${ea.last ? "Last active " + ago(ea.last) : ""}</p>${sa.progress === "ss" ? ssDetail(p) : ""}` : `<p class="muted mt12">No activity yet.</p>`}</div>`; }).join("");
+    ${ea.any ? `<div class="stat mt12"><span>${ea.stars} stars earned${ea.listened ? " · " + ea.listened + (sa.progress === "ir" ? " stories read" : " pieces heard") : ""}</span><span>${ea.badges} badge${ea.badges === 1 ? "" : "s"}</span></div><p class="muted mt8" style="font-size:.84rem">${ea.last ? "Last active " + ago(ea.last) : ""}</p>${sa.progress === "ss" ? ssDetail(p) : ""}` : `<p class="muted mt12">No activity yet.</p>`}</div>`; }).join("");
   const quizzes = quizzesOf(p).slice(0, 8);
   root.innerHTML = `<div class="pbar"><div class="wrap row"><button class="back" id="cBack">‹ Children</button><h2 class="sp">${esc(p.avatar || "🙂")} ${esc(p.name)}</h2></div></div>
   <div class="wrap"><p class="muted mt16" style="margin-bottom:12px">${esc(gradeLabel(p))}</p>${sections}${eaCard}

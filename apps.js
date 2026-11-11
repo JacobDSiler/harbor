@@ -10,7 +10,7 @@
  *   subject   "math" | "words" | null  -> links the app to progress shown in the Parent area
  *   parentParam  query string appended to open the app's own parent/teacher view
  *   status    "live" | "soon"
- *   progress  "ea" | "mu" | "ss" for apps whose progress Harbor reads from the family's _ea / _mu / _ss record (Math/Words use subject instead; ss = Sight Singing / Cantillo)
+ *   progress  "ea" | "mu" | "ss" | "pg" | "ir" for apps whose progress Harbor reads from the family's _ea / _mu / _ss record (Math/Words use subject instead; ss = Sight Singing / Cantillo)
  *   familyGroup  "pantry" for Our Kitchen / Our Home: they use their own WORD-1234 family code (set in Parent > Settings), not the Math/Words one.
  *   mic       true if the app uses the microphone. In the native app these always open in the browser window
  *             (Harbor has no microphone permission of its own). Works inside the frame on the website.
@@ -26,6 +26,8 @@ window.HARBOR_APPS = [
     emoji: "⚡", color: ["#E69A00", "#B36B00"], group: "learn", subject: null, progress: "ea", parentParam: "view=parent", status: "live" },
   { id: "music", name: "Music Adventure", tag: "Listen, play & wonder", url: "https://music.jacobsiler.com",
     emoji: "🎼", color: ["#6B4FD8", "#4a31a0"], group: "learn", subject: null, progress: "mu", parentParam: "view=parent", status: "live" },
+  { id: "irish", name: "Irish Studies", tag: "Myth, history & Gaeilge", url: "https://irish.jacobsiler.com",
+    emoji: "☘️", color: ["#2E9B5F", "#1B6B3F"], group: "learn", subject: null, progress: "ir", parentParam: "view=parent", status: "live" },
   { id: "code", name: "Programming Adventure", tag: "Code, create & solve", url: "https://code.jacobsiler.com",
     emoji: "💻", color: ["#12B58C", "#0a7a5c"], group: "learn", subject: null, progress: "pg", parentParam: "view=parent", status: "live" },
   // Sight Singing is hosted on Firebase Hosting for now. When it gets its new name and domain, change url (and name) here.
