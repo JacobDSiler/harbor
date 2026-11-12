@@ -9,6 +9,10 @@
  *   group     "learn" (school apps) or "home" (family / around the house)
  *   subject   "math" | "words" | null  -> links the app to progress shown in the Parent area
  *   parentParam  query string appended to open the app's own parent/teacher view
+ *   tier      "free" (free forever) | "oneTime" (one-time purchase) | "term" (per-term subscription) | omitted = not decided yet.
+ *             Only Entitlements (entitlements.js) reads this; nothing is gated until HARBOR_ENFORCE_ENTITLEMENTS is turned on.
+ *   goal      { units } what finishing one grade year of this app means (units = Math/Words topics mastered, or adventure units
+ *             badged). Certificates (awards.js) are earned at 80% of this. Tune freely; changing it never removes an award.
  *   status    "live" | "soon"
  *   progress  "ea" | "mu" | "ss" | "pg" | "ir" for apps whose progress Harbor reads from the family's _ea / _mu / _ss record (Math/Words use subject instead; ss = Sight Singing / Cantillo)
  *   familyGroup  "pantry" for Our Kitchen / Our Home: they use their own WORD-1234 family code (set in Parent > Settings), not the Math/Words one.
@@ -19,20 +23,20 @@
  */
 window.HARBOR_APPS = [
   { id: "math", name: "Math Adventure", tag: "Numbers, games & puzzles", url: "https://math.jacobsiler.com",
-    emoji: "🧮", color: ["#2D6BE4", "#1F4FB5"], group: "learn", subject: "math", parentParam: "view=parent", status: "live" },
+    emoji: "🧮", color: ["#2D6BE4", "#1F4FB5"], group: "learn", subject: "math", parentParam: "view=parent", tier: "free", goal: { units: 15 }, status: "live" },
   { id: "words", name: "Words Adventure", tag: "Letters, words & stories", url: "https://words.jacobsiler.com",
-    emoji: "📚", color: ["#0FBF94", "#0A8F70"], group: "learn", subject: "words", parentParam: "view=parent", status: "live" },
+    emoji: "📚", color: ["#0FBF94", "#0A8F70"], group: "learn", subject: "words", parentParam: "view=parent", tier: "free", goal: { units: 15 }, status: "live" },
   { id: "electronics", name: "Electronics Adventure", tag: "Circuits, logic & making", url: "https://electronics.jacobsiler.com",
-    emoji: "⚡", color: ["#E69A00", "#B36B00"], group: "learn", subject: null, progress: "ea", parentParam: "view=parent", status: "live" },
+    emoji: "⚡", color: ["#E69A00", "#B36B00"], group: "learn", subject: null, progress: "ea", parentParam: "view=parent", tier: "oneTime", goal: { units: 9 }, status: "live" },
   { id: "music", name: "Music Adventure", tag: "Listen, play & wonder", url: "https://music.jacobsiler.com",
-    emoji: "🎼", color: ["#6B4FD8", "#4a31a0"], group: "learn", subject: null, progress: "mu", parentParam: "view=parent", status: "live" },
+    emoji: "🎼", color: ["#6B4FD8", "#4a31a0"], group: "learn", subject: null, progress: "mu", parentParam: "view=parent", tier: "oneTime", goal: { units: 9 }, status: "live" },
   { id: "irish", name: "Irish Studies", tag: "Myth, history & Gaeilge", url: "https://irish.jacobsiler.com",
-    emoji: "☘️", color: ["#2E9B5F", "#1B6B3F"], group: "learn", subject: null, progress: "ir", parentParam: "view=parent", status: "live" },
+    emoji: "☘️", color: ["#2E9B5F", "#1B6B3F"], group: "learn", subject: null, progress: "ir", parentParam: "view=parent", tier: "oneTime", goal: { units: 20 }, status: "live" },
   { id: "code", name: "Programming Adventure", tag: "Code, create & solve", url: "https://code.jacobsiler.com",
-    emoji: "💻", color: ["#12B58C", "#0a7a5c"], group: "learn", subject: null, progress: "pg", parentParam: "view=parent", status: "live" },
+    emoji: "💻", color: ["#12B58C", "#0a7a5c"], group: "learn", subject: null, progress: "pg", parentParam: "view=parent", tier: "oneTime", goal: { units: 18 }, status: "live" },
   // Sight Singing is hosted on Firebase Hosting for now. When it gets its new name and domain, change url (and name) here.
   { id: "sing", name: "Sight Singing", tag: "Read and sing music", url: "https://homeschool-math.web.app/",
-    emoji: "🎵", color: ["#9B6BE4", "#6F43B8"], group: "learn", subject: null, progress: "ss", parentParam: "", mic: true, status: "live" },
+    emoji: "🎵", color: ["#9B6BE4", "#6F43B8"], group: "learn", subject: null, progress: "ss", parentParam: "", mic: true, tier: "term", goal: { units: 12 }, status: "live" },
   { id: "home", name: "Our Home", tag: "Our family's home base", url: "https://home.jacobsiler.com",
     emoji: "🏡", color: ["#3E9FA8", "#2B7A83"], group: "home", subject: null, parentParam: "", familyGroup: "pantry", status: "live" },
   { id: "kitchen", name: "Our Kitchen", tag: "Pantry, meals & shopping", url: "https://kitchen.jacobsiler.com",
@@ -81,3 +85,11 @@ window.HARBOR_DOWNLOADS = {
   play: "",
   appstore: ""
 };
+
+/* ---- Principles (written down once so every future decision is checked against them) ----
+ * No ads, ever. No third-party trackers. Children's data is never sold or used for advertising.
+ * Math and Words stay free forever; other adventures may be a one-time purchase, a few per-term (e.g. Sight Singing).
+ * Families own their records: certificates and progress are never removed if a plan lapses. */
+window.HARBOR_PRINCIPLES = { ads: false, thirdPartyTrackers: false, sellsChildData: false, freeForever: ["math", "words"], keepsAwardsOnLapse: true };
+/* Master switch for paid features. false = every app opens for everyone (today). Flip only when billing is live and tested. */
+window.HARBOR_ENFORCE_ENTITLEMENTS = false;

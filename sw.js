@@ -1,6 +1,6 @@
 /* Harbor service worker: app shell works offline. Other origins (Math, Words, Firebase) are never intercepted. */
-const CACHE = "harbor-shell-v1";
-const SHELL = ["./", "index.html", "apps.js", "manifest.json", "icon.svg", "icon-192.png", "icon-512.png"];
+const CACHE = "harbor-shell-v2";
+const SHELL = ["./", "index.html", "apps.js", "awards.js", "entitlements.js", "manifest.json", "icon.svg", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

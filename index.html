@@ -133,6 +133,8 @@ textarea.inp{font-weight:500;min-height:96px;resize:vertical}
 <body>
 <div id="root"></div>
 <script src="apps.js"></script>
+<script src="awards.js"></script>
+<script src="entitlements.js"></script>
 <script>
 "use strict";
 /* ============ Harbor: hub + parent area ============ */
@@ -256,6 +258,7 @@ function learnerForm(p) {
       const name = el.querySelector("#lfName").value.trim(), grade = el.querySelector("#lfGrade").value;
       if (!name) return toast("Please enter a name.");
       try {
+        if (editing && String(p.gradeId) !== String(grade)) { try { await HarborAwards.rollover(AH, p, grade); } catch (e) {} }
         await writeRoster(l => {
           if (editing) { const x = l.find(y => String(y.id) === String(p.id)); if (x) { x.name = name; x.gradeId = grade; x.avatar = av; } }
           else l.push(newLearner(name, grade, av));
@@ -335,6 +338,7 @@ async function refresh(quiet) {
       if (S.child && !profiles().some(p => String(p.id) === S.child)) S.child = ""; save(); }
   } catch (e) { loadErr = "Could not reach the family data. Showing the last saved copy."; }
   loading = false; render();
+  if (S.family && S.cache) { try { HarborAwards.sync(AH).catch(() => {}); HarborEnt.load(AH); } catch (e) {} }
 }
 function toast(msg) {
   const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t);
@@ -420,6 +424,7 @@ function openMode(a) {
 }
 function launch(id, extra) {
   const a = appById(id); if (!a || !a.url) return;
+  if (window.HarborEnt && !HarborEnt.can(a)) return toast(a.name + " isn't part of your plan yet.");
   if (openMode(a) === "browser") {
     const url = appUrl(a, extra), N = window.HarborNative;
     if (N && N.openUrl) N.openUrl(url); else window.open(url, "_blank", "noopener");
@@ -722,7 +727,30 @@ function kidsView() {
         <span class="muted" style="font-size:.86rem">${esc(gradeLabel(p))} · ${activeLine(Math.max(0, ...lasts))}</span>${rows}</span><span class="chev">›</span></button>`;
     }).join("");
 }
+/* ---- certificates / grades / diplomas (see awards.js) ---- */
+const AH = { get S() { return S; }, profiles: () => profiles(), topicsOf: p => topicsOf(p), fsLoad: () => fsLoad(), toast: m => toast(m), esc: x => esc(x), country: () => country(),
+  hasAny: (p, a) => a.subject ? summary(p, a.subject).at > 0 : sideSummary(p, a.progress).any };
+{ const st = document.createElement("style"); st.textContent = HarborAwards.css; document.head.appendChild(st); }
+HarborAwards.onChange = () => { if (route()[0] === "parent") render(); };
+function awardsCard(p) {
+  const A = HarborAwards, cur = A.current(p), rows = A.progressRows(AH, p);
+  const gl = k => { const g = window.HARBOR_GRADES[k]; return g ? (g[country()] || g.IE) : k; };
+  const certs = cur ? Object.keys(cur.awards || {}).length : 0;
+  const body = rows.map(r => { const pc = Math.round(r.ev.completion * 100);
+    return `<div class="li" style="align-items:center;gap:10px"><span style="font-size:1.4rem">${r.app.emoji}</span><span class="sp"><b>${esc(r.app.name)}</b><br><small class="muted">${r.award ? esc(A.band(r.award.score).emoji + " " + A.label(r.award, p)) : r.ev.units + " of " + r.ev.goal + " units"}</small>
+      <span class="bar"><i style="width:${pc}%"></i></span></span>${r.award ? `<button class="btn sm sec2" data-cert="certificate|${esc(p.gradeId)}|${r.app.id}">Certificate</button>` : ""}</div>`; }).join("");
+  const dip = cur && cur.diploma ? `<div class="li" style="align-items:center;gap:10px"><span style="font-size:1.4rem">🎓</span><span class="sp"><b>Diploma · ${esc(gl(p.gradeId))}</b><br><small class="muted">${esc(A.band(cur.diploma.score).emoji + " " + A.label(cur.diploma, p))}</small></span><button class="btn sm" data-cert="diploma|${esc(p.gradeId)}|">View</button></div>`
+    : `<p class="muted mt8" style="font-size:.86rem">${certs} of 3 certificates toward a ${esc(gl(p.gradeId))} diploma.</p>`;
+  const past = A.yearsFor(p).filter(y => String(y.grade) !== String(p.gradeId) && (Object.keys(y.awards || {}).length || y.diploma)).map(y =>
+    `<div class="li" style="flex-wrap:wrap;gap:6px"><b class="sp">${esc(gl(y.grade))}</b>${y.diploma ? `<button class="btn sm" data-cert="diploma|${esc(y.grade)}|">🎓 Diploma</button>` : ""}${Object.keys(y.awards || {}).map(id => { const a = appById(id); return a ? `<button class="btn sm sec2" data-cert="certificate|${esc(y.grade)}|${id}">${a.emoji}</button>` : ""; }).join("")}</div>`).join("");
+  return `<div class="card"><div class="row"><h3 class="sp">🏅 Awards · ${esc(gl(p.gradeId))}</h3>
+      <select class="inp" id="awStyle" style="width:auto;padding:6px 10px" aria-label="Grade style"><option value="bands" ${A.styleOf(p) === "bands" ? "selected" : ""}>Friendly bands</option><option value="letters" ${A.styleOf(p) === "letters" ? "selected" : ""}>Letter grades</option></select></div>
+    <p class="muted mt8" style="font-size:.86rem">Finish about 80% of an adventure's units for a certificate. Three or more earn a diploma. Grades reflect how well and how much, and never go down.</p>
+    ${cur ? (body || `<p class="muted mt12">Awards appear here as ${esc(p.name)} works through the adventures.</p>`) + dip : `<p class="muted mt12">Getting ${esc(p.name)}'s awards ready…</p>`}
+    ${past ? `<p class="lbl mt16">Earlier years</p>${past}` : ""}</div>`;
+}
 function renderChild(root, id) {
+
   const p = profiles().find(x => String(x.id) === String(id)); if (!p) return go("parent/kids");
   const subjects = APPS.filter(a => a.subject);
   const sections = subjects.map(a => {
@@ -740,13 +768,16 @@ function renderChild(root, id) {
     return `<div class="card"><div class="row"><h3 class="sp">${sa.emoji} ${esc(sa.name)}</h3><button class="btn sm sec2" data-open="${sa.id}" data-extra="${esc(sa.parentParam)}">Open parent view</button></div>
     ${ea.any ? `<div class="stat mt12"><span>${ea.stars} stars earned${ea.listened ? " · " + ea.listened + (sa.progress === "ir" ? " stories read" : " pieces heard") : ""}</span><span>${ea.badges} badge${ea.badges === 1 ? "" : "s"}</span></div><p class="muted mt8" style="font-size:.84rem">${ea.last ? "Last active " + ago(ea.last) : ""}</p>${sa.progress === "ss" ? ssDetail(p) : ""}` : `<p class="muted mt12">No activity yet.</p>`}</div>`; }).join("");
   const quizzes = quizzesOf(p).slice(0, 8);
+  const awCard = awardsCard(p);
   root.innerHTML = `<div class="pbar"><div class="wrap row"><button class="back" id="cBack">‹ Children</button><h2 class="sp">${esc(p.avatar || "🙂")} ${esc(p.name)}</h2></div></div>
-  <div class="wrap"><p class="muted mt16" style="margin-bottom:12px">${esc(gradeLabel(p))}</p>${sections}${eaCard}
+  <div class="wrap"><p class="muted mt16" style="margin-bottom:12px">${esc(gradeLabel(p))}</p>${sections}${eaCard}${awCard}
     <div class="card"><h3>Recent quizzes</h3>${quizzes.length ? quizzes.map(q => `<div class="li"><span>${q.subject === "words" ? "📚" : "🧮"}</span><span class="sp">${esc(q.topics.map(pretty).join(", ") || "Quiz")}<br><small class="muted">${ago(q.ts)}</small></span><b>${q.score}/${q.total}</b></div>`).join("") : `<p class="muted mt8">No quizzes yet.</p>`}</div>
     <div class="card"><h3>Manage ${esc(p.name)}</h3><p class="muted mt8" style="font-size:.9rem">Changes here apply to every Harbor app.</p>
       <div class="row mt12" style="flex-wrap:wrap"><button class="btn sec2" id="editKid">Edit details</button>${profiles().length > 1 ? `<button class="btn sec2" id="mergeInto">Merge another into ${esc(p.name)}</button>` : ""}<button class="btn danger" id="rmKid">Remove</button></div></div>
     <div class="card"><label class="lbl" for="note">Teaching notes (kept on this device)</label><textarea class="inp" id="note" placeholder="What are we working on with ${esc(p.name)}?">${esc(S.notes[p.id] || "")}</textarea></div>
   </div>`;
+  root.querySelectorAll("[data-cert]").forEach(b => b.onclick = () => { const [k, g, a] = b.dataset.cert.split("|"); HarborAwards.showCertificate(AH, HarborAwards.certificateHTML(AH, p, g, k, a)); });
+  const awS = $("#awStyle"); if (awS) awS.onchange = async () => { await HarborAwards.setStyle(AH, p, awS.value); render(); };
   $("#cBack").onclick = () => go("parent/kids");
   $("#editKid").onclick = () => learnerForm(p);
   const mi = $("#mergeInto"); if (mi) mi.onclick = () => mergeSheet(p.id);
