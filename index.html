@@ -534,6 +534,7 @@ function mergeEA(x, y) {
   if (Array.isArray(bx) || (Array.isArray(by) && !bx)) m.badges = [...new Set([...(bx || []), ...(Array.isArray(by) ? by : Object.keys(by || {}))])];
   else m.badges = Object.assign({}, by, bx);
   if (x.listened || y.listened) m.listened = Object.assign({}, y.listened, x.listened);
+  if (x.srs || y.srs) m.srs = Object.assign({}, y.srs, x.srs);   // Irish Studies words known
   if (x.songs || y.songs) { m.songs = Object.assign({}, y.songs, x.songs); for (const k in (y.songs || {})) { const c = (x.songs || {})[k]; if (c && (y.songs[k].best || 0) > (c.best || 0)) m.songs[k] = y.songs[k]; } }
   if (x.drills || y.drills) { m.drills = Object.assign({}, y.drills, x.drills); for (const k in (y.drills || {})) { const c = (x.drills || {})[k]; if (c && (y.drills[k].total || 0) > (c.total || 0)) m.drills[k] = y.drills[k]; } }
   Object.keys(x).forEach(k => { if (!(k in m)) m[k] = x[k]; });
