@@ -40,9 +40,9 @@
     }
     const pr = (S.cache && S.cache[app.progress] && S.cache[app.progress][p.id]) || null;
     if (!pr) return m;
-    ["labs", "ch", "games"].forEach(g => Object.values(pr[g] || {}).forEach(x => { const s = Math.max(0, Math.min(3, x.stars || 0)); m.stars += s; m.qSum += s / 3 * 100; m.qN++; }));
+    ["labs", "ch", "games", "done"].forEach(g => Object.values(pr[g] || {}).forEach(x => { const s = Math.max(0, Math.min(3, x.stars || 0)); m.stars += s; m.qSum += s / 3 * 100; m.qN++; }));
     Object.values(pr.quiz || {}).forEach(x => { m.stars += (x.pct >= 90 ? 3 : x.pct >= 70 ? 2 : 1); m.qSum += Math.max(0, Math.min(100, x.pct || 0)); m.qN++; });
-    m.units = Object.keys(pr.badges || {}).length;
+    m.units = app.progress === "ca" ? Object.values(pr.done || {}).filter(x => (x.stars || 0) > 0).length : Object.keys(pr.badges || {}).length;   // Computing: finished lessons (its badges are only per zone)
     return m;
   };
   const diff = (c, b) => { b = b || zero(); const d = {}; for (const k in c) d[k] = Math.max(0, (c[k] || 0) - (b[k] || 0)); return d; };

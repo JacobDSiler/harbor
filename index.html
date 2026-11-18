@@ -205,9 +205,9 @@ async function fsLoad() {
 }
 async function fetchFamily(code) {
   const { F, db } = await fsLoad();
-  const [snap, ea, mu, ss, pg, ir] = await Promise.all([F.getDoc(F.doc(db, "families", code)), F.getDoc(F.doc(db, "families", code + "_ea")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_mu")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_ss")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_pg")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_ir")).catch(() => null)]);
+  const [snap, ea, mu, ss, pg, ir, ca] = await Promise.all([F.getDoc(F.doc(db, "families", code)), F.getDoc(F.doc(db, "families", code + "_ea")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_mu")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_ss")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_pg")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_ir")).catch(() => null), F.getDoc(F.doc(db, "families", code + "_ca")).catch(() => null)]);
   if (!snap.exists()) return null;
-  const d = snap.data(); d._ea = (ea && ea.exists() && ea.data().prog) || {}; d._mu = (mu && mu.exists() && mu.data().prog) || {}; d._ss = (ss && ss.exists() && ss.data().prog) || {}; d._pg = (pg && pg.exists() && pg.data().prog) || {}; d._ir = (ir && ir.exists() && ir.data().prog) || {};
+  const d = snap.data(); d._ea = (ea && ea.exists() && ea.data().prog) || {}; d._mu = (mu && mu.exists() && mu.data().prog) || {}; d._ss = (ss && ss.exists() && ss.data().prog) || {}; d._pg = (pg && pg.exists() && pg.data().prog) || {}; d._ir = (ir && ir.exists() && ir.data().prog) || {}; d._ca = (ca && ca.exists() && ca.data().prog) || {};
   return d;
 }
 /* ---- central roster: Harbor is the one place to add / edit / remove learners ----
@@ -305,7 +305,7 @@ function eaSummary(p) { return sideSummary(p, "ea"); }
 function muSummary(p) { return sideSummary(p, "mu"); }
 function ssSummary(p) { return sideSummary(p, "ss"); }
 /* apps whose progress Harbor reads from the family's side record (_ea Electronics, _mu Music, _ss Sight Singing / Cantillo) */
-const isSide = a => a.progress === "ea" || a.progress === "mu" || a.progress === "ss" || a.progress === "pg" || a.progress === "ir";
+const isSide = a => a.progress === "ea" || a.progress === "mu" || a.progress === "ss" || a.progress === "pg" || a.progress === "ir" || a.progress === "ca";
 /* Sight Singing detail: best score per song, interval/note drills, recent average. */
 function ssDetail(p) {
   const pr = (S.cache && S.cache.ss && S.cache.ss[p.id]) || null; if (!pr) return "";
@@ -321,6 +321,7 @@ function sideSummary(p, key) {
   if (!pr) return { stars: 0, badges: 0, last: 0, listened: 0, any: false };
   let stars = 0, last = 0;
   Object.values(pr.labs || {}).forEach(x => { stars += x.stars || 0; last = Math.max(last, x.at || 0); });
+  Object.values(pr.done || {}).forEach(x => { stars += x.stars || 0; last = Math.max(last, x.at || 0); });   // Computing Adventure lessons
   Object.values(pr.ch || {}).forEach(x => { stars += x.stars || 0; last = Math.max(last, x.at || 0); });   // Programming Adventure challenges
   Object.values(pr.quiz || {}).forEach(x => { stars += (x.pct >= 90 ? 3 : x.pct >= 70 ? 2 : 1); last = Math.max(last, x.at || 0); });
   Object.values(pr.games || {}).forEach(x => { stars += x.stars || 0; last = Math.max(last, x.at || 0); });
@@ -334,7 +335,7 @@ async function refresh(quiet) {
   try {
     const d = await fetchFamily(S.family);
     if (!d) { loadErr = "That family code was not found."; }
-    else { S.cache = { profiles: d.profiles || [], country: d.country || "IE", parentPin: d.parentPin || "", ea: d._ea || {}, mu: d._mu || {}, ss: d._ss || {}, pg: d._pg || {}, ir: d._ir || {} }; S.cachedAt = Date.now();
+    else { S.cache = { profiles: d.profiles || [], country: d.country || "IE", parentPin: d.parentPin || "", ea: d._ea || {}, mu: d._mu || {}, ss: d._ss || {}, pg: d._pg || {}, ir: d._ir || {}, ca: d._ca || {} }; S.cachedAt = Date.now();
       if (S.child && !profiles().some(p => String(p.id) === S.child)) S.child = ""; save(); }
   } catch (e) { loadErr = "Could not reach the family data. Showing the last saved copy."; }
   loading = false; render();
@@ -538,6 +539,7 @@ function mergeEA(x, y) {
   const bx = x.badges, by = y.badges;
   if (Array.isArray(bx) || (Array.isArray(by) && !bx)) m.badges = [...new Set([...(bx || []), ...(Array.isArray(by) ? by : Object.keys(by || {}))])];
   else m.badges = Object.assign({}, by, bx);
+  if (x.done || y.done) { m.done = Object.assign({}, y.done, x.done); for (const k in (y.done || {})) { const c = (x.done || {})[k]; if (c && (y.done[k].stars || 0) > (c.stars || 0)) m.done[k] = y.done[k]; } }
   if (x.listened || y.listened) m.listened = Object.assign({}, y.listened, x.listened);
   if (x.srs || y.srs) m.srs = Object.assign({}, y.srs, x.srs);   // Irish Studies words known
   if (x.songs || y.songs) { m.songs = Object.assign({}, y.songs, x.songs); for (const k in (y.songs || {})) { const c = (x.songs || {})[k]; if (c && (y.songs[k].best || 0) > (c.best || 0)) m.songs[k] = y.songs[k]; } }
@@ -545,7 +547,7 @@ function mergeEA(x, y) {
   Object.keys(x).forEach(k => { if (!(k in m)) m[k] = x[k]; });
   return m;
 }
-const SIDE = [{ key: "ea", suf: "_ea", app: "electronics-adventure" }, { key: "mu", suf: "_mu", app: "music-adventure" }, { key: "ss", suf: "_ss", app: "cantillo" }, { key: "pg", suf: "_pg", app: "programming-adventure" }, { key: "ir", suf: "_ir", app: "irish-studies" }];
+const SIDE = [{ key: "ea", suf: "_ea", app: "electronics-adventure" }, { key: "mu", suf: "_mu", app: "music-adventure" }, { key: "ss", suf: "_ss", app: "cantillo" }, { key: "pg", suf: "_pg", app: "programming-adventure" }, { key: "ir", suf: "_ir", app: "irish-studies" }, { key: "ca", suf: "_ca", app: "computing-adventure" }];
 async function mergeLearners(keepId, dupIds) {
   const { F, db } = await fsLoad(), ref = F.doc(db, "families", S.family), refs = SIDE.map(sd => F.doc(db, "families", S.family + sd.suf)),
     bkRef = F.doc(db, "families", S.family + "_merge_" + Date.now()), dups = new Set(dupIds.map(String));
