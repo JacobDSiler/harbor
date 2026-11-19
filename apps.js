@@ -36,6 +36,10 @@ window.HARBOR_APPS = [
     emoji: "🖱️", color: ["#3B82C4", "#235A8F"], group: "learn", subject: null, progress: "ca", parentParam: "view=parent", tier: "oneTime", goal: { units: 40 }, status: "live" },
   { id: "code", name: "Programming Adventure", tag: "Code, create & solve", url: "https://code.jacobsiler.com",
     emoji: "💻", color: ["#12B58C", "#0a7a5c"], group: "learn", subject: null, progress: "pg", parentParam: "view=parent", tier: "oneTime", goal: { units: 18 }, status: "live" },
+  // Folio Junior: kid-safe side of Folio. Same site as adult Folio (the Junior mode lives inside the app). Folio reads Harbor's
+  // ?from=harbor&family=&child=&view=parent handoff itself. No progress key and no Harbor awards: it is a launcher only.
+  { id: "folio-junior", name: "Folio Junior", tag: "Write and share your own books", url: "https://onfolio.press",
+    emoji: "📖", color: ["#065f46", "#044a37"], group: "learn", subject: null, parentParam: "view=parent", goal: { units: 0, label: "books written" }, status: "live" },
   // Sight Singing is hosted on Firebase Hosting for now. When it gets its new name and domain, change url (and name) here.
   { id: "sing", name: "Sight Singing", tag: "Read and sing music", url: "https://homeschool-math.web.app/",
     emoji: "🎵", color: ["#9B6BE4", "#6F43B8"], group: "learn", subject: null, progress: "ss", parentParam: "", mic: true, tier: "term", goal: { units: 12 }, status: "live" },
