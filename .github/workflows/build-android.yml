@@ -78,17 +78,6 @@ jobs:
           if [ -f out/Harbor-release.apk ]; then cp out/Harbor-release.apk out/Harbor.apk; else cp out/Harbor-debug.apk out/Harbor.apk; fi
           ls -la out
 
-      # Optional: ships the signed bundle to the Play Console internal-testing track (needs the PLAY_SERVICE_ACCOUNT_JSON secret).
-      - name: Upload to Google Play (internal testing)
-        if: env.HAS_PLAY == 'true'
-        uses: r0adkll/upload-google-play@v1
-        with:
-          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          packageName: com.silertech.harbor
-          releaseFiles: out/Harbor-release.aab
-          track: internal
-          status: draft
-
       - uses: actions/upload-artifact@v4
         with:
           name: Harbor-android
@@ -113,3 +102,15 @@ jobs:
           files: out/Harbor.apk
           prerelease: false
           make_latest: false
+
+      # Optional: ships the signed bundle to the Play Console internal-testing track (needs the PLAY_SERVICE_ACCOUNT_JSON secret).
+      - name: Upload to Google Play (internal testing)
+        if: env.HAS_PLAY == 'true'
+        continue-on-error: true   # a Play permission problem must never stop the APK and artifacts above/below from being published
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.silertech.harbor
+          releaseFiles: out/Harbor-release.aab
+          tracks: internal
+          status: draft
