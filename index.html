@@ -200,8 +200,87 @@ async function fsLoad() {
   const cfg = window.HARBOR_FIREBASE;
   const A = await import("https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js");
   const F = await import("https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js");
+  const AU = await import("https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js");
   const app = A.getApps().length ? A.getApps()[0] : A.initializeApp(cfg);
-  return { F, db: F.getFirestore(app) };
+  return { A, F, AU, db: F.getFirestore(app), auth: AU.getAuth(app), app };
+}
+
+/* ---- Google sign-in (Phase 2a of ownership overhaul).
+   A family that has `ownerUid` set on its families/{code} doc is "claimed";
+   any device signed in to the owning Google account skips the PIN entirely.
+   Families with no ownerUid behave as before (PIN-only). Firestore RULES
+   still allow unauthenticated reads+writes so this ships without a rules
+   migration — tightening happens once Folio + Math/Words also honour
+   ownership. */
+let authUser = null;     // Firebase auth user, or null
+let authReady = false;   // becomes true after first onAuthStateChanged fires
+let authReadyWaiters = [];
+async function initAuth() {
+  const { auth, AU } = await fsLoad();
+  AU.onAuthStateChanged(auth, (u) => {
+    authUser = u || null;
+    if (!authReady) { authReady = true; authReadyWaiters.forEach(fn => { try { fn(); } catch(_){} }); authReadyWaiters = []; }
+    // Re-render so ownership-based UI reflects the new state.
+    try { render(); } catch(_) {}
+  });
+}
+function whenAuthReady() { return authReady ? Promise.resolve() : new Promise(res => authReadyWaiters.push(res)); }
+async function signInGoogle() {
+  const { auth, AU } = await fsLoad();
+  const provider = new AU.GoogleAuthProvider();
+  // Pick an account every time rather than silently reusing the last one —
+  // helpful when a family is shared across parents who use the same device.
+  provider.setCustomParameters({ prompt: "select_account" });
+  try {
+    await AU.signInWithPopup(auth, provider);
+  } catch (e) {
+    if (e && e.code === "auth/popup-blocked") {
+      // Fall back to redirect flow (mobile Safari sometimes blocks popups).
+      await AU.signInWithRedirect(auth, provider);
+      return;
+    }
+    throw e;
+  }
+}
+async function signOutGoogle() {
+  const { auth, AU } = await fsLoad();
+  await AU.signOut(auth);
+}
+/* Claim the currently linked family for the signed-in Google account.
+   - If the family has no ownerUid: stamps the current UID as owner. If the
+     family has a parentPin, the PIN is required first (prevents a stranger
+     who got the code from quietly claiming).
+   - If ownerUid already matches: no-op (success).
+   - If ownerUid is someone else: throws. */
+async function claimFamily(pinIfNeeded) {
+  if (!authUser) throw new Error("Sign in with Google first.");
+  if (!S.family) throw new Error("No family linked.");
+  const { F, db } = await fsLoad();
+  const ref = F.doc(db, "families", S.family);
+  const snap = await F.getDoc(ref);
+  if (!snap.exists()) throw new Error("That family code is not in Harbor.");
+  const d = snap.data() || {};
+  if (d.ownerUid && d.ownerUid === authUser.uid) return { already: true };
+  if (d.ownerUid && d.ownerUid !== authUser.uid)
+    throw new Error("This family is owned by a different Google account (" + (d.ownerEmail || "unknown") + "). Ask that account to add you, or sign in as that account.");
+  // Unclaimed: PIN required if one exists.
+  if (d.parentPin) {
+    if (!pinIfNeeded) throw new Error("PIN_REQUIRED");
+    if (String(pinIfNeeded) !== String(d.parentPin))
+      throw new Error("That PIN does not match this family.");
+  }
+  await F.updateDoc(ref, {
+    ownerUid: authUser.uid,
+    ownerEmail: authUser.email || "",
+    ownerClaimedAt: Date.now(),
+  });
+  // Refresh cached data so UI reflects ownership immediately.
+  S.cache = null; S.cachedAt = 0;
+  return { claimed: true };
+}
+/* Is the current signed-in user the owner of the currently linked family? */
+function isFamilyOwner() {
+  return !!(authUser && S.cache && S.cache.ownerUid && S.cache.ownerUid === authUser.uid);
 }
 async function fetchFamily(code) {
   const { F, db } = await fsLoad();
@@ -335,7 +414,7 @@ async function refresh(quiet) {
   try {
     const d = await fetchFamily(S.family);
     if (!d) { loadErr = "That family code was not found."; }
-    else { S.cache = { profiles: d.profiles || [], country: d.country || "IE", parentPin: d.parentPin || "", ea: d._ea || {}, mu: d._mu || {}, ss: d._ss || {}, pg: d._pg || {}, ir: d._ir || {}, ca: d._ca || {} }; S.cachedAt = Date.now();
+    else { S.cache = { profiles: d.profiles || [], country: d.country || "IE", parentPin: d.parentPin || "", ownerUid: d.ownerUid || "", ownerEmail: d.ownerEmail || "", ea: d._ea || {}, mu: d._mu || {}, ss: d._ss || {}, pg: d._pg || {}, ir: d._ir || {}, ca: d._ca || {} }; S.cachedAt = Date.now();
       if (S.child && !profiles().some(p => String(p.id) === S.child)) S.child = ""; save(); }
   } catch (e) { loadErr = "Could not reach the family data. Showing the last saved copy."; }
   loading = false; render();
@@ -356,6 +435,8 @@ function render() {
   if (r[0] === "app") return renderApp(root, r[1]);
   if (r[0] === "pin") return renderPin(root);
   if (r[0] === "parent") {
+    // Google-authenticated owners skip the PIN screen entirely.
+    if (isFamilyOwner()) { unlockedUntil = Date.now() + 36e5; return renderParent(root, r); }
     if (Date.now() > unlockedUntil) { pinBuf = ""; pinErr = ""; pinMode = needPinSetup() ? "create" : "enter"; return go("pin"); }
     return renderParent(root, r);
   }
@@ -793,6 +874,39 @@ function appsView() {
       <label class="row" style="gap:6px;font-weight:700;font-size:.85rem"><input type="checkbox" data-vis="${a.id}" ${S.hidden.includes(a.id) ? "" : "checked"}> Show</label></div>
       ${a.url && a.parentParam ? `<button class="btn sm sec2 mt12" data-open="${a.id}" data-extra="${esc(a.parentParam)}">Open ${esc(a.name)} parent view</button>` : ""}</div>`).join("");
 }
+/* Family ownership card — Google sign-in + claim flow. Sits in Settings
+   above the Parent PIN card. See initAuth / claimFamily for the model. */
+function ownershipCard() {
+  const famLinked = !!S.family;
+  const owned = isFamilyOwner();
+  const otherOwner = !!(authUser && S.cache && S.cache.ownerUid && S.cache.ownerUid !== authUser.uid);
+  const unclaimed = famLinked && S.cache && !S.cache.ownerUid;
+  let body = "";
+  if (!authUser) {
+    body = `<p class="muted mt8" style="font-size:.9rem">Sign in with Google to skip the Parent PIN on this device and recover access if you forget it. Your Google account becomes the owner of this family across every Harbor app.</p>
+      <button class="btn mt12" id="gSignIn">Sign in with Google</button>`;
+  } else if (!famLinked) {
+    body = `<p class="muted mt8" style="font-size:.9rem">Signed in as <b>${esc(authUser.email || "(no email)")}</b>. Link a family code above to claim it.</p>
+      <button class="btn ghost mt12" id="gSignOut">Sign out</button>`;
+  } else if (owned) {
+    body = `<p class="muted mt8" style="font-size:.9rem">✓ Signed in as <b>${esc(authUser.email || "(no email)")}</b>. You own <b>${esc(S.family)}</b>, so the PIN is skipped here. Sign in with the same Google account on your other devices to skip the PIN there too.</p>
+      <button class="btn ghost mt12" id="gSignOut">Sign out</button>`;
+  } else if (otherOwner) {
+    body = `<p class="muted mt8" style="font-size:.9rem">Signed in as <b>${esc(authUser.email || "(no email)")}</b>, but family <b>${esc(S.family)}</b> is owned by <b>${esc(S.cache.ownerEmail || "another Google account")}</b>. Sign in as that account, or ask them to share.</p>
+      <button class="btn ghost mt12" id="gSignOut">Sign out</button>`;
+  } else if (unclaimed) {
+    const pinNeeded = !!(S.cache && S.cache.parentPin);
+    body = `<p class="muted mt8" style="font-size:.9rem">Signed in as <b>${esc(authUser.email || "(no email)")}</b>. Family <b>${esc(S.family)}</b> hasn't been claimed yet. ${pinNeeded ? "Enter the current Parent PIN once to claim it." : "Claim it to skip the PIN on every device signed in to this Google account."}</p>
+      ${pinNeeded ? `<input class="inp mt12" id="claimPin" type="password" inputmode="numeric" maxlength="4" placeholder="Parent PIN">` : ""}
+      <div class="row mt12"><button class="btn" id="gClaim">Claim this family</button><button class="btn ghost" id="gSignOut">Sign out</button></div>
+      <div class="muted mt8" id="gClaimErr" style="color:#c04040;font-size:.85rem;min-height:1em"></div>`;
+  } else {
+    body = `<p class="muted mt8" style="font-size:.9rem">Signed in as <b>${esc(authUser.email || "(no email)")}</b>. Loading family details…</p>
+      <button class="btn ghost mt12" id="gSignOut">Sign out</button>`;
+  }
+  return `<div class="card"><h3>Family ownership</h3>${body}</div>`;
+}
+
 function settingsView() {
   return `<div class="card"><h3>Family code</h3><p class="muted mt8" style="font-size:.9rem">The code shared by all your Harbor apps (like MA-XXXX). Not got one yet? Start a new family and Harbor creates it.</p>
     <input class="inp mt12" id="code" data-famcode placeholder="MA-XXXX" value="${esc(S.family)}" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="7">
@@ -804,7 +918,8 @@ ${S.family ? `<div class="card"><h3>Old family records</h3><p class="muted mt8" 
     <div class="row mt12"><button class="btn sp" id="savePantry">${S.pantry ? "Update code" : "Link Kitchen &amp; Home"}</button>${S.pantry ? `<button class="btn danger" id="unlinkPantry">Unlink</button>` : ""}</div></div>
     <div class="card"><h3>Opening apps</h3><p class="muted mt8" style="font-size:.9rem">"Inside Harbor" keeps everyone in one place. "In a browser window" uses the phone's browser, which remembers your Math and Words logins.</p>
     <select class="inp mt12" id="openMode"><option value="auto">Automatic (recommended)</option><option value="frame">Inside Harbor</option><option value="browser">In a browser window</option></select></div>
-    <div class="card"><h3>Parent PIN</h3><p class="muted mt8" style="font-size:.9rem">Harbor accepts your Harbor PIN${S.cache && S.cache.parentPin ? " or the PIN set in Math/Words" : ""}.</p>
+    ${ownershipCard()}
+    <div class="card"><h3>Parent PIN</h3><p class="muted mt8" style="font-size:.9rem">${isFamilyOwner() ? "You're signed in as the family owner — the PIN isn't needed on this device. A PIN is still handy on shared devices where you don't want to sign in." : "Harbor accepts your Harbor PIN" + (S.cache && S.cache.parentPin ? " or the PIN set in Math/Words" : "") + "."}</p>
     <button class="btn ghost mt12" id="chgPin">${S.pin ? "Change Harbor PIN" : "Set Harbor PIN"}</button></div>
     <div class="card"><h3>About</h3><p class="muted mt8" style="font-size:.9rem">Harbor v${VERSION} shows your family's progress from Firebase. It only changes the children list when you add, edit, remove or merge a child.</p><p class="mt8" style="font-size:.9rem"><a href="privacy.html" target="_blank" rel="noopener">Privacy policy</a></p></div>`;
 }
@@ -839,6 +954,29 @@ function wireParent(root) {
   const up = $("#unlinkPantry"); if (up) up.onclick = () => { if (confirm("Unlink Our Kitchen and Our Home from Harbor? They keep their own login.")) { S.pantry = ""; save(); render(); } };
   const ul = $("#unlink"); if (ul) ul.onclick = () => { if (confirm("Unlink this device from " + S.family + "? Your data stays safe in the cloud.")) { S.family = ""; S.child = ""; S.cache = null; S.cachedAt = 0; save(); render(); } };
   const cp = $("#chgPin"); if (cp) cp.onclick = () => { pinBuf = ""; pinErr = ""; pinMode = "create"; unlockedUntil = 0; go("pin"); };
+  const gi = $("#gSignIn"); if (gi) gi.onclick = async () => {
+    try { await signInGoogle(); toast("Signed in — reading family…"); await refresh(true); render(); }
+    catch (e) { toast(e && e.message ? e.message.slice(0, 80) : "Sign-in failed."); }
+  };
+  const go2 = $("#gSignOut"); if (go2) go2.onclick = async () => {
+    try { await signOutGoogle(); toast("Signed out."); render(); }
+    catch (e) { toast("Sign-out failed."); }
+  };
+  const gc = $("#gClaim"); if (gc) gc.onclick = async () => {
+    const errBox = $("#gClaimErr"); if (errBox) errBox.textContent = "";
+    const pinEl = $("#claimPin");
+    const pin = pinEl ? pinEl.value : "";
+    gc.disabled = true; gc.textContent = "Claiming…";
+    try {
+      await claimFamily(pin);
+      toast("Family claimed ⚓");
+      await refresh(true);
+      render();
+    } catch (e) {
+      gc.disabled = false; gc.textContent = "Claim this family";
+      if (errBox) errBox.textContent = (e && e.message) || "Claim failed.";
+    }
+  };
 }
 
 /* ---- boot ---- */
@@ -847,6 +985,7 @@ if (window.Capacitor) { const nb = document.createElement("script"); nb.src = "n
 if ("serviceWorker" in navigator && location.protocol.startsWith("http") && !window.Capacitor) navigator.serviceWorker.register("sw.js").catch(() => {});
 render();
 if (S.family) refresh(true);
+initAuth().catch(e => console.warn("[Harbor] auth init failed:", e));
 </script>
 </body>
 </html>
