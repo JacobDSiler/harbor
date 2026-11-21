@@ -16,7 +16,7 @@ rmSync(www, { recursive: true, force: true });
 mkdirSync(www, { recursive: true });
 
 // sw.js is deliberately not copied: the native shell serves files locally and never registers it.
-for (const f of ['index.html', 'apps.js', 'manifest.json', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png']) {
+for (const f of ['index.html', 'apps.js', 'awards.js', 'entitlements.js', 'manifest.json', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png']) {
   const src = resolve(root, f);
   if (existsSync(src)) cpSync(src, resolve(www, f));
 }
